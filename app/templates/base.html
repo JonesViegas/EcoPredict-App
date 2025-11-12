@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}EcoPredict - Monitoramento de Qualidade do Ar{% endblock %}</title>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary-color: #2E8B57;
+            --secondary-color: #228B22;
+            --accent-color: #32CD32;
+            --dark-color: #1A535C;
+            --light-color: #F7FFF7;
+            --warning-color: #FF6B6B;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .sidebar {
+            min-height: 100vh;
+            background: linear-gradient(135deg, var(--primary-color), var(--dark-color));
+            color: white;
+            transition: all 0.3s;
+            box-shadow: 3px 0 10px rgba(0,0,0,0.1);
+        }
+        
+        .sidebar .nav-link {
+            color: rgba(255,255,255,0.8);
+            padding: 12px 20px;
+            margin: 5px 0;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+        
+        .sidebar .nav-link:hover {
+            color: white;
+            background: rgba(255,255,255,0.1);
+            transform: translateX(5px);
+        }
+        
+        .sidebar .nav-link.active {
+            color: white;
+            background: rgba(255,255,255,0.2);
+            font-weight: 500;
+        }
+        
+        .sidebar .nav-link i {
+            width: 25px;
+            text-align: center;
+        }
+        
+        .main-content {
+            margin-left: 0;
+            transition: all 0.3s;
+        }
+        
+        .navbar-custom {
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .card-custom {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            transition: transform 0.3s;
+        }
+        
+        .card-custom:hover {
+            transform: translateY(-5px);
+        }
+        
+        .aqi-excellent { background: linear-gradient(135deg, #00b09b, #96c93d); color: white; }
+        .aqi-good { background: linear-gradient(135deg, #a8e6cf, #56ab2f); color: white; }
+        .aqi-moderate { background: linear-gradient(135deg, #ffd89b, #ff9d00); color: white; }
+        .aqi-poor { background: linear-gradient(135deg, #ff9068, #ff5858); color: white; }
+        .aqi-very-poor { background: linear-gradient(135deg, #8b0000, #ff0000); color: white; }
+        
+        .hero-section {
+            background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), 
+                        url('https://images.unsplash.com/photo-1518837695005-2083093ee35b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');
+            background-size: cover;
+            background-position: center;
+            color: white;
+            padding: 100px 0;
+        }
+        
+        .stat-card {
+            border-left: 4px solid var(--primary-color);
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                min-height: auto;
+                width: 100%;
+            }
+            
+            .main-content {
+                margin-left: 0 !important;
+            }
+        }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    {% if current_user.is_authenticated %}
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <nav id="sidebar" class="col-md-3 col-lg-2 d-md-block sidebar collapse">
+                <div class="position-sticky pt-3">
+                    <div class="text-center mb-4">
+                        <h4 class="text-white">
+                            <i class="fas fa-leaf me-2"></i>
+                            EcoPredict
+                        </h4>
+                        <small class="text-light">Monitoramento Inteligente</small>
+                    </div>
+                    
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'main.dashboard' %}active{% endif %}" 
+                               href="{{ url_for('main.dashboard') }}">
+                                <i class="fas fa-tachometer-alt"></i>
+                                Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'main.map_view' %}active{% endif %}" 
+                               href="{{ url_for('main.map_view') }}">
+                                <i class="fas fa-map-marked-alt"></i>
+                                Mapa Interativo
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'main.upload_data' %}active{% endif %}" 
+                               href="{{ url_for('main.upload_data') }}">
+                                <i class="fas fa-upload"></i>
+                                Upload de Dados
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'external.sources' %}active{% endif %}" 
+                            href="{{ url_for('external.sources') }}">
+                                <i class="fas fa-external-link-alt"></i>
+                                Dados Externos
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'main.ml_models' %}active{% endif %}" 
+                               href="{{ url_for('main.ml_models') }}">
+                                <i class="fas fa-brain"></i>
+                                Modelos ML
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'main.reports' %}active{% endif %}" 
+                               href="{{ url_for('main.reports') }}">
+                                <i class="fas fa-chart-bar"></i>
+                                Relatórios
+                            </a>
+                        </li>
+                        
+                        {% if current_user.is_admin %}
+                        <li class="nav-item mt-3">
+                            <small class="text-uppercase text-light opacity-75 ms-3">Admin</small>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'main.admin_panel' %}active{% endif %}" 
+                               href="{{ url_for('main.admin_panel') }}">
+                                <i class="fas fa-cog"></i>
+                                Painel Admin
+                            </a>
+                        </li>
+                        {% endif %}
+                        
+                        <li class="nav-item mt-3">
+                            <small class="text-uppercase text-light opacity-75 ms-3">Conta</small>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('auth.change_password') }}">
+                                <i class="fas fa-key"></i>
+                                Trocar Senha
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-warning" href="{{ url_for('auth.logout') }}">
+                                <i class="fas fa-sign-out-alt"></i>
+                                Sair
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+
+            <!-- Main content -->
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content" id="main-content">
+                <!-- Top navbar -->
+                <nav class="navbar navbar-custom navbar-expand-lg">
+                    <div class="container-fluid">
+                        <button class="btn btn-primary d-md-none" type="button" data-bs-toggle="collapse" data-bs-target="#sidebar">
+                            <i class="fas fa-bars"></i>
+                        </button>
+                        
+                        <div class="d-flex align-items-center">
+                            <span class="navbar-text">
+                                Bem-vindo, <strong>{{ current_user.username }}</strong>
+                            </span>
+                        </div>
+                    </div>
+                </nav>
+                
+                <!-- Flash messages -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show mt-3" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                <!-- Page content -->
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+    {% else %}
+        <!-- Public pages without sidebar -->
+        {% block public_content %}{% endblock %}
+    {% endif %}
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <script>
+        // Sidebar toggle functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('main-content');
+            
+            // Toggle sidebar on mobile
+            const sidebarToggles = document.querySelectorAll('[data-bs-target="#sidebar"]');
+            sidebarToggles.forEach(toggle => {
+                toggle.addEventListener('click', function() {
+                    sidebar.classList.toggle('collapse');
+                    mainContent.classList.toggle('col-md-9');
+                });
+            });
+        });
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

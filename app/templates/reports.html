@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+{% block title %}Relatórios - EcoPredict{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h3 mb-0">
+                <i class="fas fa-chart-bar me-2"></i>
+                Relatórios e Análises
+            </h1>
+            <p class="text-muted">Análises detalhadas e relatórios dos seus dados</p>
+        </div>
+    </div>
+
+    <!-- Alerts Section -->
+    {% if alerts %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card card-custom">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-bell me-2"></i>
+                        Alertas do Sistema
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% for alert in alerts %}
+                    <div class="alert alert-{{ alert.type }} alert-dismissible fade show mb-2" role="alert">
+                        <i class="fas fa-{% if alert.type == 'success' %}check-circle{% else %}exclamation-triangle{% endif %} me-2"></i>
+                        {{ alert.message }}
+                        <small class="text-muted ms-2">{{ alert.timestamp.strftime('%d/%m/%Y %H:%M') }}</small>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row g-4">
+        <!-- Correlation Analysis -->
+        <div class="col-12">
+            <div class="card card-custom">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-project-diagram me-2"></i>
+                        Análise de Correlação
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if correlations %}
+                    <div class="row g-4">
+                        {% for dataset_id, correlation in correlations.items() %}
+                        <div class="col-lg-6">
+                            <h6>Dataset {{ dataset_id }}</h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-bordered">
+                                    <thead>
+                                        <tr>
+                                            <th>Variável</th>
+                                            {% for col in correlation.keys() %}
+                                            <th class="text-center">{{ col[:8] }}...</th>
+                                            {% endfor %}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for row_var, row_data in correlation.items() %}
+                                        <tr>
+                                            <td><strong>{{ row_var[:8] }}...</strong></td>
+                                            {% for col_var, value in row_data.items() %}
+                                            <td class="text-center">
+                                                {% set abs_value = value|abs %}
+                                                <span class="badge 
+                                                    {% if abs_value >= 0.8 %}bg-danger
+                                                    {% elif abs_value >= 0.6 %}bg-warning
+                                                    {% elif abs_value >= 0.4 %}bg-info
+                                                    {% elif abs_value >= 0.2 %}bg-primary
+                                                    {% else %}bg-secondary{% endif %}">
+                                                    {{ "%.2f"|format(value) }}
+                                                </span>
+                                            </td>
+                                            {% endfor %}
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-chart-line fa-3x mb-3"></i>
+                        <p>Nenhuma análise de correlação disponível.</p>
+                        <p class="small">Faça upload de datasets para gerar análises.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistical Reports -->
+        <div class="col-12">
+            <div class="card card-custom">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-line me-2"></i>
+                        Estatísticas Descritivas
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if statistics %}
+                    <div class="row g-4">
+                        {% for dataset_id, stats in statistics.items() %}
+                        <div class="col-lg-6">
+                            <h6>Dataset {{ dataset_id }}</h6>
+                            {% if stats.numeric %}
+                            <div class="table-responsive">
+                                <table class="table table-sm table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Variável</th>
+                                            <th>Média</th>
+                                            <th>Desvio</th>
+                                            <th>Min</th>
+                                            <th>Max</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                       {% for var_name in stats.numeric.mean.keys() %}
+                                        <tr>
+                                            <td><strong>{{ var_name }}</strong></td>
+                                            <td>{{ "%.2f"|format(stats.numeric.mean[var_name]) }}</td>
+                                            <td>{{ "%.2f"|format(stats.numeric.std[var_name]) }}</td>
+                                            <td>{{ "%.2f"|format(stats.numeric.min[var_name]) }}</td>
+                                            <td>{{ "%.2f"|format(stats.numeric.max[var_name]) }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-calculator fa-3x mb-3"></i>
+                        <p>Nenhuma estatística disponível.</p>
+                        <p class="small">Processe seus datasets para ver estatísticas.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Quality Report -->
+        <div class="col-12">
+            <div class="card card-custom">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-clipboard-check me-2"></i>
+                        Relatório de Qualidade de Dados
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if datasets %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Dataset</th>
+                                    <th>Linhas</th>
+                                    <th>Colunas</th>
+                                    <th>Qualidade</th>
+                                    <th>Dados Faltantes</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for dataset in datasets %}
+                                <tr>
+                                    <td>{{ dataset.original_filename }}</td>
+                                    <td>{{ dataset.rows_count }}</td>
+                                    <td>{{ dataset.columns_count }}</td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="progress flex-grow-1 me-2" style="height: 8px;">
+                                                <div class="progress-bar 
+                                                    {% if dataset.data_quality_score >= 80 %}bg-success
+                                                    {% elif dataset.data_quality_score >= 60 %}bg-warning
+                                                    {% else %}bg-danger{% endif %}" 
+                                                    style="width: {{ dataset.data_quality_score }}%">
+                                                </div>
+                                            </div>
+                                            <span>{{ "%.0f"|format(dataset.data_quality_score) }}%</span>
+                                        </div>
+                                    </td>
+                                    <td>{{ "%.1f"|format(dataset.missing_data_percentage) }}%</td>
+                                    <td>
+                                        {% if dataset.data_quality_score >= 80 %}
+                                            <span class="badge bg-success">Excelente</span>
+                                        {% elif dataset.data_quality_score >= 60 %}
+                                            <span class="badge bg-warning">Bom</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">Precisa Melhorar</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-database fa-3x mb-3"></i>
+                        <p>Nenhum dataset para análise.</p>
+                        <a href="{{ url_for('main.upload_data') }}" class="btn btn-success">
+                            <i class="fas fa-upload me-2"></i>
+                            Fazer Upload de Dados
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}INPE Queimadas - EcoPredict{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h3 mb-0">
+                <i class="fas fa-fire me-2"></i>
+                INPE - Queimadas
+            </h1>
+            <p class="text-muted">Busque dados de focos de queimadas monitorados pelo INPE</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card card-custom">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-search me-2"></i>
+                        Parâmetros de Busca
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label">Estado/Região</label>
+                                <select class="form-select" name="state">
+                                    <option value="Brasil" selected>Brasil - Todos os estados</option>
+                                    <option value="AC">Acre</option>
+                                    <option value="AL">Alagoas</option>
+                                    <option value="AP">Amapá</option>
+                                    <option value="AM">Amazonas</option>
+                                    <option value="BA">Bahia</option>
+                                    <option value="CE">Ceará</option>
+                                    <option value="DF">Distrito Federal</option>
+                                    <option value="ES">Espírito Santo</option>
+                                    <option value="GO">Goiás</option>
+                                    <option value="MA">Maranhão</option>
+                                    <option value="MT">Mato Grosso</option>
+                                    <option value="MS">Mato Grosso do Sul</option>
+                                    <option value="MG">Minas Gerais</option>
+                                    <option value="PA">Pará</option>
+                                    <option value="PB">Paraíba</option>
+                                    <option value="PR">Paraná</option>
+                                    <option value="PE">Pernambuco</option>
+                                    <option value="PI">Piauí</option>
+                                    <option value="RJ">Rio de Janeiro</option>
+                                    <option value="RN">Rio Grande do Norte</option>
+                                    <option value="RS">Rio Grande do Sul</option>
+                                    <option value="RO">Rondônia</option>
+                                    <option value="RR">Roraima</option>
+                                    <option value="SC">Santa Catarina</option>
+                                    <option value="SP">São Paulo</option>
+                                    <option value="SE">Sergipe</option>
+                                    <option value="TO">Tocantins</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Data Inicial *</label>
+                                <input type="date" class="form-control" name="date_from" required
+                                       value="{{ request.form.get('date_from', '') }}">
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Data Final *</label>
+                                <input type="date" class="form-control" name="date_to" required
+                                       value="{{ request.form.get('date_to', '') }}">
+                            </div>
+
+                            <div class="col-12">
+                                <div class="alert alert-warning">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    <strong>Período máximo:</strong> 90 dias para melhor performance.
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <strong>Dados disponíveis:</strong> Localização, data, satélite, confiança e bioma dos focos de queimadas.
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-danger btn-lg w-100">
+                                    <i class="fas fa-fire me-2"></i>
+                                    Buscar Dados de Queimadas
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <!-- Informações -->
+            <div class="card card-custom">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Sobre o INPE Queimadas
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>INPE - Programa Queimadas</strong> monitora focos de calor e queimadas em todo o território brasileiro.</p>
+                    
+                    <h6>🔥 Dados Disponíveis:</h6>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-map-marker-alt text-success me-2"></i> Coordenadas geográficas</li>
+                        <li><i class="fas fa-calendar text-success me-2"></i> Data e hora da detecção</li>
+                        <li><i class="fas fa-satellite text-success me-2"></i> Satélite de origem</li>
+                        <li><i class="fas fa-chart-line text-success me-2"></i> Confiança da detecção</li>
+                        <li><i class="fas fa-tree text-success me-2"></i> Bioma afetado</li>
+                    </ul>
+
+                    <h6>🛰️ Satélites Utilizados:</h6>
+                    <p>NOAA, GOES, TERRA, AQUA e outros.</p>
+
+                    <h6>📈 Aplicações:</h6>
+                    <ul>
+                        <li>Monitoramento ambiental</li>
+                        <li>Análise de impacto climático</li>
+                        <li>Prevenção de incêndios</li>
+                        <li>Pesquisa científica</li>
+                    </ul>
+
+                    <div class="alert alert-info mt-3">
+                        <i class="fas fa-database me-2"></i>
+                        Dados atualizados diariamente.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

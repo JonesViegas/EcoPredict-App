@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}EcoPredict - Monitoramento Inteligente da Qualidade do Ar{% endblock %}
+
+{% block public_content %}
+<!-- Hero Section -->
+<section class="hero-section">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-8">
+                <h1 class="display-4 fw-bold mb-4">
+                    <i class="fas fa-leaf me-3"></i>
+                    EcoPredict
+                </h1>
+                <h2 class="mb-4">Monitoramento Inteligente da Qualidade do Ar</h2>
+                <p class="lead mb-5">
+                    Utilizando machine learning para prever e analisar a qualidade do ar 
+                    em tempo real. Proteja o meio ambiente com tecnologia avançada.
+                </p>
+                <div class="d-flex gap-3 flex-wrap">
+                    <a href="{{ url_for('auth.register') }}" class="btn btn-success btn-lg">
+                        <i class="fas fa-user-plus me-2"></i>
+                        Cadastrar
+                    </a>
+                    <a href="{{ url_for('auth.login') }}" class="btn btn-outline-light btn-lg">
+                        <i class="fas fa-sign-in-alt me-2"></i>
+                        Entrar
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Features Section -->
+<section class="py-5 bg-light">
+    <div class="container">
+        <div class="row text-center mb-5">
+            <div class="col">
+                <h2 class="fw-bold text-dark">Funcionalidades Principais</h2>
+                <p class="lead">Tudo que você precisa para monitorar e prever a qualidade do ar</p>
+            </div>
+        </div>
+        
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card card-custom h-100 text-center">
+                    <div class="card-body p-4">
+                        <div class="feature-icon mb-3">
+                            <i class="fas fa-map-marked-alt fa-3x text-primary"></i>
+                        </div>
+                        <h4 class="card-title">Mapa Interativo</h4>
+                        <p class="card-text">
+                            Visualize dados de qualidade do ar em tempo real através 
+                            de um mapa interativo com dados de múltiplas fontes.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card card-custom h-100 text-center">
+                    <div class="card-body p-4">
+                        <div class="feature-icon mb-3">
+                            <i class="fas fa-brain fa-3x text-success"></i>
+                        </div>
+                        <h4 class="card-title">Machine Learning</h4>
+                        <p class="card-text">
+                            Modelos preditivos com mais de 85% de precisão para 
+                            prever tendências futuras da qualidade do ar.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card card-custom h-100 text-center">
+                    <div class="card-body p-4">
+                        <div class="feature-icon mb-3">
+                            <i class="fas fa-chart-line fa-3x text-warning"></i>
+                        </div>
+                        <h4 class="card-title">Análises Avançadas</h4>
+                        <p class="card-text">
+                            Relatórios detalhados, correlações entre variáveis 
+                            e alertas em tempo real sobre condições críticas.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Stats Section -->
+<section class="py-5">
+    <div class="container">
+        <div class="row g-4">
+            <div class="col-md-3 col-6 text-center">
+                <div class="stat-card bg-white p-4 rounded-3">
+                    <i class="fas fa-database fa-2x text-primary mb-2"></i>
+                    <h3 class="fw-bold text-dark">1M+</h3>
+                    <p class="text-muted mb-0">Dados Coletados</p>
+                </div>
+            </div>
+            <div class="col-md-3 col-6 text-center">
+                <div class="stat-card bg-white p-4 rounded-3">
+                    <i class="fas fa-chart-bar fa-2x text-success mb-2"></i>
+                    <h3 class="fw-bold text-dark">85%+</h3>
+                    <p class="text-muted mb-0">Precisão dos Modelos</p>
+                </div>
+            </div>
+            <div class="col-md-3 col-6 text-center">
+                <div class="stat-card bg-white p-4 rounded-3">
+                    <i class="fas fa-map-marker-alt fa-2x text-warning mb-2"></i>
+                    <h3 class="fw-bold text-dark">50+</h3>
+                    <p class="text-muted mb-0">Locais Monitorados</p>
+                </div>
+            </div>
+            <div class="col-md-3 col-6 text-center">
+                <div class="stat-card bg-white p-4 rounded-3">
+                    <i class="fas fa-users fa-2x text-info mb-2"></i>
+                    <h3 class="fw-bold text-dark">500+</h3>
+                    <p class="text-muted mb-0">Usuários Ativos</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA Section -->
+<section class="py-5 bg-dark text-white">
+    <div class="container text-center">
+        <h2 class="fw-bold mb-4">Pronto para começar?</h2>
+        <p class="lead mb-4">
+            Junte-se à nossa plataforma e contribua para um monitoramento ambiental mais inteligente.
+        </p>
+        <a href="{{ url_for('auth.register') }}" class="btn btn-success btn-lg">
+            <i class="fas fa-rocket me-2"></i>
+            Começar Agora
+        </a>
+    </div>
+</section>
+
+<footer class="bg-light py-4">
+    <div class="container text-center">
+        <p class="mb-0 text-muted">
+            &copy; 2024 EcoPredict. Todos os direitos reservados.
+        </p>
+    </div>
+</footer>
+{% endblock %}

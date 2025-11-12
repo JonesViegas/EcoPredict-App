@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% block title %}INMET - EcoPredict{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h3 mb-0">
+                <i class="fas fa-cloud-sun me-2"></i>
+                INMET - Dados Meteorológicos
+            </h1>
+            <p class="text-muted">Busque dados meteorológicos das estações do Instituto Nacional de Meteorologia</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card card-custom">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-search me-2"></i>
+                        Parâmetros de Busca
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" id="inmetForm">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label" for="stateSelect">Estado</label>
+                                <select class="form-select" id="stateSelect">
+                                    <option value="">Selecione um estado</option>
+                                    <option value="AC">Acre</option>
+                                    <option value="AL">Alagoas</option>
+                                    <option value="AP">Amapá</option>
+                                    <option value="AM">Amazonas</option>
+                                    <option value="BA">Bahia</option>
+                                    <option value="CE">Ceará</option>
+                                    <option value="DF">Distrito Federal</option>
+                                    <option value="ES">Espírito Santo</option>
+                                    <option value="GO">Goiás</option>
+                                    <option value="MA">Maranhão</option>
+                                    <option value="MT">Mato Grosso</option>
+                                    <option value="MS">Mato Grosso do Sul</option>
+                                    <option value="MG">Minas Gerais</option>
+                                    <option value="PA">Pará</option>
+                                    <option value="PB">Paraíba</option>
+                                    <option value="PR">Paraná</option>
+                                    <option value="PE">Pernambuco</option>
+                                    <option value="PI">Piauí</option>
+                                    <option value="RJ">Rio de Janeiro</option>
+                                    <option value="RN">Rio Grande do Norte</option>
+                                    <option value="RS">Rio Grande do Sul</option>
+                                    <option value="RO">Rondônia</option>
+                                    <option value="RR">Roraima</option>
+                                    <option value="SC">Santa Catarina</option>
+                                    <option value="SP">São Paulo</option>
+                                    <option value="SE">Sergipe</option>
+                                    <option value="TO">Tocantins</option>
+                                </select>
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label" for="stationSelect">Estação Meteorológica *</label>
+                                <select class="form-select" name="station_code" id="stationSelect" required disabled>
+                                    <option value="">Selecione um estado primeiro</option>
+                                </select>
+                                <small class="form-text text-muted" id="stationInfo">
+                                    Selecione uma estação para ver informações detalhadas
+                                </small>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label" for="date_from">Data Inicial *</label>
+                                <input type="date" class="form-control" id="date_from" name="date_from" required
+                                       value="{{ request.form.get('date_from', '') }}">
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label" for="date_to">Data Final *</label>
+                                <input type="date" class="form-control" id="date_to" name="date_to" required
+                                       value="{{ request.form.get('date_to', '') }}">
+                            </div>
+
+                            <div class="col-12">
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <strong>Dados disponíveis:</strong> Temperatura, Umidade, Pressão, Vento, Precipitação e mais.
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <button type="submit" id="submitBtn" class="btn btn-success btn-lg w-100" disabled>
+                                    <i class="fas fa-cloud-download-alt me-2"></i>
+                                    Buscar Dados Meteorológicos
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <!-- Informações -->
+            <div class="card card-custom">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Sobre o INMET
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>INMET</strong> - Instituto Nacional de Meteorologia fornece dados meteorológicos oficiais do Brasil.</p>
+                    
+                    <h6>🌤️ Dados Disponíveis:</h6>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-temperature-high text-success me-2"></i> Temperatura</li>
+                        <li><i class="fas fa-tint text-success me-2"></i> Umidade</li>
+                        <li><i class="fas fa-wind text-success me-2"></i> Velocidade do Vento</li>
+                        <li><i class="fas fa-compress-alt text-success me-2"></i> Pressão Atmosférica</li>
+                        <li><i class="fas fa-cloud-rain text-success me-2"></i> Precipitação</li>
+                        <li><i class="fas fa-sun text-success me-2"></i> Radiação Solar</li>
+                    </ul>
+
+                    <h6>📡 Cobertura:</h6>
+                    <p>Estações automáticas em todo o território brasileiro.</p>
+
+                    <div class="alert alert-warning mt-3">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Algumas estações podem ter dados incompletos em certos períodos.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const stateSelect = document.getElementById('stateSelect');
+    const stationSelect = document.getElementById('stationSelect');
+    const stationInfo = document.getElementById('stationInfo');
+    const submitBtn = document.getElementById('submitBtn');
+
+    // Função para carregar estações do INMET
+    function loadINMETStations() {
+        const state = stateSelect.value;
+        
+        // Reseta e desabilita os campos dependentes
+        stationSelect.innerHTML = '<option value="">Carregando estações...</option>';
+        stationSelect.disabled = true;
+        submitBtn.disabled = true;
+        stationInfo.textContent = 'Selecione uma estação para ver informações detalhadas';
+        
+        // Se nenhum estado for selecionado, para a execução
+        if (!state) {
+            stationSelect.innerHTML = '<option value="">Selecione um estado primeiro</option>';
+            return;
+        }
+
+        // Gera a URL da API de forma segura usando url_for do Flask
+        const apiUrl = `{{ url_for('external.api_inmet_stations') }}?state=${state}`;
+
+        fetch(apiUrl)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('A resposta da rede não foi OK');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success && data.stations && data.stations.length > 0) {
+                    stationSelect.innerHTML = '<option value="">Selecione uma estação</option>';
+                    data.stations.forEach(station => {
+                        const option = document.createElement('option');
+                        option.value = station.code;
+                        option.textContent = `${station.name} (${station.code})`;
+                        option.dataset.info = `Lat: ${station.latitude}, Lon: ${station.longitude}`;
+                        stationSelect.appendChild(option);
+                    });
+                    // Habilita o seletor de estações, mas mantém o botão de busca desabilitado
+                    stationSelect.disabled = false;
+                } else {
+                    stationSelect.innerHTML = '<option value="">Nenhuma estação encontrada</option>';
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao buscar estações do INMET:', error);
+                stationSelect.innerHTML = '<option value="">Erro ao carregar estações</option>';
+            });
+    }
+
+    // Função para atualizar o estado do botão de busca
+    function updateSubmitButtonState() {
+        // Habilita o botão somente se um estado E uma estação válida forem selecionados
+        if (stateSelect.value && stationSelect.value) {
+            submitBtn.disabled = false;
+        } else {
+            submitBtn.disabled = true;
+        }
+    }
+    
+    // Adiciona os gatilhos (event listeners)
+    stateSelect.addEventListener('change', loadINMETStations);
+
+    stationSelect.addEventListener('change', function() {
+        const selectedOption = this.options[this.selectedIndex];
+        if (selectedOption && selectedOption.dataset.info) {
+            stationInfo.textContent = selectedOption.dataset.info;
+        } else {
+            stationInfo.textContent = 'Selecione uma estação para ver informações detalhadas';
+        }
+        updateSubmitButtonState(); // Atualiza o botão quando uma estação é selecionada
+    });
+    
+    // Adiciona um listener para o seletor de estado também atualizar o botão
+    stateSelect.addEventListener('change', updateSubmitButtonState);
+});
+</script>
+{% endblock %}
+{% endblock %}

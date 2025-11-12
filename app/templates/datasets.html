@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+{% block title %}Meus Datasets - EcoPredict{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h3 mb-0">
+                <i class="fas fa-database me-2"></i>
+                Meus Datasets
+            </h1>
+            <p class="text-muted">Gerencie seus datasets de qualidade do ar</p>
+        </div>
+        <div class="col-auto">
+            <a href="{{ url_for('main.upload_data') }}" class="btn btn-success">
+                <i class="fas fa-plus me-2"></i>
+                Novo Dataset
+            </a>
+        </div>
+    </div>
+
+    <!-- User Datasets -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card card-custom">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-user me-2"></i>
+                        Meus Datasets
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if user_datasets %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Nome do Arquivo</th>
+                                    <th>Tamanho</th>
+                                    <th>Linhas</th>
+                                    <th>Colunas</th>
+                                    <th>Qualidade</th>
+                                    <th>Data</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for dataset in user_datasets %}
+                                <tr>
+                                    <td>
+                                        <i class="fas fa-file-csv text-primary me-2"></i>
+                                        {{ dataset.original_filename }}
+                                        {% if dataset.description %}
+                                        <br><small class="text-muted">{{ dataset.description[:50] }}...</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ "%.1f"|format(dataset.file_size / 1024 / 1024) }} MB</td>
+                                    <td>{{ dataset.rows_count }}</td>
+                                    <td>{{ dataset.columns_count }}</td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="progress flex-grow-1 me-2" style="height: 6px;">
+                                                <div class="progress-bar 
+                                                    {% if dataset.data_quality_score >= 80 %}bg-success
+                                                    {% elif dataset.data_quality_score >= 60 %}bg-warning
+                                                    {% else %}bg-danger{% endif %}" 
+                                                    style="width: {{ dataset.data_quality_score }}%">
+                                                </div>
+                                            </div>
+                                            <small>{{ "%.0f"|format(dataset.data_quality_score) }}%</small>
+                                        </div>
+                                    </td>
+                                    <td>{{ dataset.uploaded_at.strftime('%d/%m/%Y') }}</td>
+                                    <td>
+                                        {% if dataset.is_public %}
+                                            <span class="badge bg-success">Público</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Privado</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{{ url_for('main.download_dataset', dataset_id=dataset.id) }}" 
+                                               class="btn btn-outline-primary" title="Download">
+                                                <i class="fas fa-download"></i>
+                                            </a>
+                                            <button class="btn btn-outline-info" onclick="showDatasetInfo({{ dataset.id }})" title="Informações">
+                                                <i class="fas fa-info"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center text-muted py-5">
+                        <i class="fas fa-database fa-3x mb-3"></i>
+                        <p>Nenhum dataset encontrado.</p>
+                        <a href="{{ url_for('main.upload_data') }}" class="btn btn-success">
+                            <i class="fas fa-upload me-2"></i>
+                            Fazer Primeiro Upload
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Public Datasets -->
+    {% if public_datasets %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card card-custom">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-users me-2"></i>
+                        Datasets Públicos
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Nome do Arquivo</th>
+                                    <th>Upload por</th>
+                                    <th>Linhas</th>
+                                    <th>Colunas</th>
+                                    <th>Data</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for dataset in public_datasets %}
+                                <tr>
+                                    <td>
+                                        <i class="fas fa-file-csv text-success me-2"></i>
+                                        {{ dataset.original_filename }}
+                                    </td>
+                                    <td>{{ dataset.uploader.username }}</td>
+                                    <td>{{ dataset.rows_count }}</td>
+                                    <td>{{ dataset.columns_count }}</td>
+                                    <td>{{ dataset.uploaded_at.strftime('%d/%m/%Y') }}</td>
+                                    <td>
+                                        <a href="{{ url_for('main.download_dataset', dataset_id=dataset.id) }}" 
+                                           class="btn btn-outline-success btn-sm">
+                                            <i class="fas fa-download me-1"></i>
+                                            Download
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Dataset Info Modal -->
+<div class="modal fade" id="datasetInfoModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Informações do Dataset</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="datasetInfoContent">
+                <!-- Content will be loaded via JavaScript -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function showDatasetInfo(datasetId) {
+    // In a real implementation, you would fetch dataset details via AJAX
+    const modalContent = document.getElementById('datasetInfoContent');
+    modalContent.innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Carregando...</span>
+            </div>
+        </div>
+    `;
+    
+    // Simulate API call
+    setTimeout(() => {
+        modalContent.innerHTML = `
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <strong>Nome do Arquivo:</strong> dataset_${datasetId}.csv
+                </div>
+                <div class="col-md-6">
+                    <strong>Tamanho:</strong> 2.5 MB
+                </div>
+                <div class="col-md-6">
+                    <strong>Linhas:</strong> 1,000
+                </div>
+                <div class="col-md-6">
+                    <strong>Colunas:</strong> 8
+                </div>
+                <div class="col-md-6">
+                    <strong>Qualidade:</strong> 85%
+                </div>
+                <div class="col-md-6">
+                    <strong>Dados Faltantes:</strong> 2.3%
+                </div>
+                <div class="col-12">
+                    <strong>Descrição:</strong><br>
+                    Dataset contendo dados de qualidade do ar coletados em Manaus.
+                </div>
+                <div class="col-12">
+                    <strong>Colunas:</strong><br>
+                    <span class="badge bg-light text-dark me-1">timestamp</span>
+                    <span class="badge bg-light text-dark me-1">location</span>
+                    <span class="badge bg-light text-dark me-1">pm25</span>
+                    <span class="badge bg-light text-dark me-1">pm10</span>
+                    <span class="badge bg-light text-dark me-1">temperature</span>
+                    <span class="badge bg-light text-dark me-1">humidity</span>
+                </div>
+            </div>
+        `;
+    }, 1000);
+    
+    const modal = new bootstrap.Modal(document.getElementById('datasetInfoModal'));
+    modal.show();
+}
+</script>
+{% endblock %}

@@ -1,0 +1,23 @@
+# Ambientes Virtuais
+venv/
+.venv/
+env/
+
+# Arquivos de cache do Python
+__pycache__/
+*.pyc
+
+# Pasta de instância do Flask
+# Contém uploads, modelos de ML e outros dados sensíveis
+instance/
+
+# Arquivos de ambiente com segredos e senhas
+.env
+
+# Arquivos de IDEs
+.vscode/
+.idea/
+
+# Arquivos de sistema operacional
+.DS_Store
+Thumbs.db

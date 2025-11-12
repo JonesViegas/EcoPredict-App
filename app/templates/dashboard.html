@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - EcoPredict{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h3 mb-0">
+                <i class="fas fa-tachometer-alt me-2"></i>
+                Dashboard
+            </h1>
+            <p class="text-muted">Visão geral do sistema e métricas principais</p>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row g-4 mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="card card-custom aqi-excellent">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title text-white mb-0">{{ "%.1f"|format(avg_aqi) }}</h4>
+                            <p class="card-text text-white-50 mb-0">AQI Médio</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-wind fa-2x text-white-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6">
+            <div class="card card-custom bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title text-white mb-0">{{ total_datasets }}</h4>
+                            <p class="card-text text-white-50 mb-0">Datasets</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-database fa-2x text-white-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6">
+            <div class="card card-custom bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title text-white mb-0">{{ total_models }}</h4>
+                            <p class="card-text text-white-50 mb-0">Modelos ML</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-brain fa-2x text-white-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6">
+            <div class="card card-custom bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title text-white mb-0">{{ active_models }}</h4>
+                            <p class="card-text text-white-50 mb-0">Modelos Ativos</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-check-circle fa-2x text-white-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- AQI Distribution Chart -->
+        <div class="col-xl-6">
+            <div class="card card-custom">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-pie me-2"></i>
+                        Distribuição do AQI
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="aqiChart" width="400" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Data -->
+        <div class="col-xl-6">
+            <div class="card card-custom">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-clock me-2"></i>
+                        Dados Recentes
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Localização</th>
+                                    <th>AQI</th>
+                                    <th>PM2.5</th>
+                                    <th>Temp</th>
+                                    <th>Data</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for data in recent_data %}
+                                <tr>
+                                    <td>{{ data.location }}</td>
+                                    <td>
+                                        <span class="badge 
+                                            {% if data.aqi <= 50 %}bg-success
+                                            {% elif data.aqi <= 100 %}bg-info
+                                            {% elif data.aqi <= 150 %}bg-warning
+                                            {% elif data.aqi <= 200 %}bg-orange
+                                            {% else %}bg-danger{% endif %}">
+                                            {{ "%.1f"|format(data.aqi) }}
+                                        </span>
+                                    </td>
+                                    <td>{{ "%.1f"|format(data.pm25) if data.pm25 else 'N/A' }}</td>
+                                    <td>{{ "%.1f"|format(data.temperature) if data.temperature else 'N/A' }}°C</td>
+                                    <td>{{ data.timestamp.strftime('%d/%m %H:%M') }}</td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted">
+                                        Nenhum dado disponível
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="col-12">
+            <div class="card card-custom">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-bolt me-2"></i>
+                        Ações Rápidas
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-3 col-6">
+                            <a href="{{ url_for('main.upload_data') }}" class="btn btn-outline-primary w-100 h-100 py-3">
+                                <i class="fas fa-upload fa-2x mb-2"></i><br>
+                                Upload de Dados
+                            </a>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <a href="{{ url_for('main.map_view') }}" class="btn btn-outline-success w-100 h-100 py-3">
+                                <i class="fas fa-map-marked-alt fa-2x mb-2"></i><br>
+                                Ver Mapa
+                            </a>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <a href="{{ url_for('main.ml_models') }}" class="btn btn-outline-warning w-100 h-100 py-3">
+                                <i class="fas fa-brain fa-2x mb-2"></i><br>
+                                Treinar Modelo
+                            </a>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <a href="{{ url_for('main.reports') }}" class="btn btn-outline-info w-100 h-100 py-3">
+                                <i class="fas fa-chart-bar fa-2x mb-2"></i><br>
+                                Ver Relatórios
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // AQI Distribution Chart
+    const aqiCtx = document.getElementById('aqiChart').getContext('2d');
+    const aqiChart = new Chart(aqiCtx, {
+        type: 'doughnut',
+        data: {
+            labels: {{ aqi_categories.keys()|list|tojson }},
+            datasets: [{
+                data: {{ aqi_categories.values()|list|tojson }},
+                backgroundColor: [
+                    '#28a745', '#17a2b8', '#ffc107', '#fd7e14', '#dc3545', '#6f42c1'
+                ],
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        padding: 20,
+                        usePointStyle: true
+                    }
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

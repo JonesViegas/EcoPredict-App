@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}Mapa Interativo - EcoPredict{% endblock %}
+
+{% block extra_css %}
+<style>
+    #map {
+        height: 600px;
+        border-radius: 15px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    
+    .map-container {
+        position: relative;
+    }
+    
+    .map-controls {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 1000;
+        background: white;
+        padding: 10px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h3 mb-0">
+                <i class="fas fa-map-marked-alt me-2"></i>
+                Mapa Interativo da Qualidade do Ar
+            </h1>
+            <p class="text-muted">Visualize dados de qualidade do ar em tempo real</p>
+        </div>
+        <div class="col-auto">
+            <a href="{{ url_for('main.add_air_quality_data') }}" class="btn btn-success">
+                <i class="fas fa-plus me-2"></i>
+                Adicionar Dados
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card card-custom">
+                <div class="card-body p-0">
+                    <div class="map-container">
+                        <div class="map-controls">
+                            <div class="btn-group">
+                                <button class="btn btn-sm btn-outline-primary" onclick="refreshMap()">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-info" onclick="focusOnBrazil()">
+                                    <i class="fas fa-crosshairs"></i>
+                                </button>
+                            </div>
+                        </div>
+                        {{ map_html|safe }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card card-custom">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Legenda do AQI
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2 text-center">
+                        <div class="col-md-2">
+                            <span class="badge bg-success p-2 w-100">0-50<br>Excelente</span>
+                        </div>
+                        <div class="col-md-2">
+                            <span class="badge bg-info p-2 w-100">51-100<br>Bom</span>
+                        </div>
+                        <div class="col-md-2">
+                            <span class="badge bg-warning p-2 w-100">101-150<br>Moderado</span>
+                        </div>
+                        <div class="col-md-2">
+                            <span class="badge bg-orange p-2 w-100 text-white">151-200<br>Ruim</span>
+                        </div>
+                        <div class="col-md-2">
+                            <span class="badge bg-danger p-2 w-100">201-300<br>Muito Ruim</span>
+                        </div>
+                        <div class="col-md-2">
+                            <span class="badge bg-dark p-2 w-100">301+<br>Perigoso</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function refreshMap() {
+    location.reload();
+}
+
+function focusOnBrazil() {
+    // This would need to be implemented with Leaflet/OpenStreetMap
+    // For now, just reload the map
+    refreshMap();
+}
+
+// Load real-time data
+async function loadRealTimeData() {
+    try {
+        const response = await fetch('/api/air-quality-data');
+        const data = await response.json();
+        console.log('Real-time data loaded:', data);
+        // Here you would update the map with new data
+    } catch (error) {
+        console.error('Error loading real-time data:', error);
+    }
+}
+
+// Refresh data every 5 minutes
+setInterval(loadRealTimeData, 300000);
+
+// Initial load
+loadRealTimeData();
+</script>
+{% endblock %}

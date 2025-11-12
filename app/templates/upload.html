@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Upload de Dados - EcoPredict{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h3 mb-0">
+                <i class="fas fa-upload me-2"></i>
+                Upload de Dados
+            </h1>
+            <p class="text-muted">Faça upload de datasets de sensores ou dados manuais</p>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card card-custom">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-cloud-upload-alt me-2"></i>
+                        Upload de Arquivo
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" enctype="multipart/form-data">
+                        {{ form.hidden_tag() }}
+                        
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <div class="file-upload-area border rounded p-5 text-center">
+                                    <i class="fas fa-file-csv fa-3x text-primary mb-3"></i>
+                                    <h5>Arraste e solte seu arquivo aqui</h5>
+                                    <p class="text-muted mb-3">ou</p>
+                                    {{ form.dataset_file(class="form-control", accept=".csv,.xlsx,.xls") }}
+                                    <small class="form-text text-muted">
+                                        Formatos suportados: CSV, Excel (XLSX, XLS). Tamanho máximo: 16MB
+                                    </small>
+                                    {% if form.dataset_file.errors %}
+                                        <div class="text-danger mt-2">
+                                            {% for error in form.dataset_file.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-12">
+                                {{ form.description.label(class="form-label") }}
+                                {{ form.description(class="form-control", rows="3", placeholder="Descreva o conteúdo do dataset...") }}
+                            </div>
+                            
+                            <div class="col-12">
+                                <div class="form-check">
+                                    {{ form.is_public(class="form-check-input") }}
+                                    {{ form.is_public.label(class="form-check-label") }}
+                                    <small class="form-text text-muted d-block">
+                                        Datasets públicos podem ser visualizados por outros usuários
+                                    </small>
+                                </div>
+                            </div>
+                            
+                            <div class="col-12">
+                                <div class="d-grid gap-2">
+                                    {{ form.submit(class="btn btn-success btn-lg") }}
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Data Format Guidelines -->
+            <div class="card card-custom mt-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Diretrizes de Formato
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <h6>Colunas Recomendadas:</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="fas fa-check text-success me-2"></i>timestamp (data/hora)</li>
+                                <li><i class="fas fa-check text-success me-2"></i>location (localização)</li>
+                                <li><i class="fas fa-check text-success me-2"></i>latitude, longitude</li>
+                                <li><i class="fas fa-check text-success me-2"></i>pm25, pm10</li>
+                                <li><i class="fas fa-check text-success me-2"></i>no2, so2, co, o3</li>
+                                <li><i class="fas fa-check text-success me-2"></i>temperature, humidity</li>
+                                <li><i class="fas fa-check text-success me-2"></i>wind_speed</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Exemplo de CSV:</h6>
+                            <pre class="bg-light p-3 rounded small">
+timestamp,location,latitude,longitude,pm25,pm10,temperature
+2024-01-15 10:00,Manaus,-3.1190,-60.0217,12.5,25.3,28.5
+2024-01-15 11:00,Manaus,-3.1190,-60.0217,15.2,28.7,29.1</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

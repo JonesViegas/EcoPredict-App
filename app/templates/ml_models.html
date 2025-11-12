@@ -1,0 +1,296 @@
+{% extends "base.html" %}
+{% block title %}Modelos de Machine Learning - EcoPredict{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h3 mb-0">
+                <i class="fas fa-brain me-2"></i>
+                Modelos de Machine Learning
+            </h1>
+            <p class="text-muted">Treine e gerencie modelos preditivos para qualidade do ar</p>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Training Form -->
+        <div class="col-lg-6">
+            <div class="card card-custom">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-plus me-2"></i>
+                        Treinar Novo Modelo
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('main.ml_models') }}">
+                        {{ form.hidden_tag() }}
+                        
+                        <div class="row g-3">
+                            <div class="col-12">
+                                {{ form.name.label(class="form-label") }}
+                                {{ form.name(class="form-control", placeholder="Nome do modelo") }}
+                                {% if form.name.errors %}
+                                    <div class="text-danger">
+                                        {% for error in form.name.errors %}
+                                            <small>{{ error }}</small>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-6">
+                                {{ form.model_type.label(class="form-label") }}
+                                {{ form.model_type(class="form-select") }}
+                            </div>
+                            
+                            <div class="col-md-6">
+                                {{ form.algorithm.label(class="form-label") }}
+                                {{ form.algorithm(class="form-select") }}
+                            </div>
+                            
+                            <div class="col-12">
+                                <label class="form-label">Dataset</label>
+                                <select name="dataset_id" class="form-select" required>
+                                    <option value="">Selecione um dataset</option>
+                                    {% for dataset in datasets %}
+                                    <option value="{{ dataset.id }}">{{ dataset.original_filename }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <div class="col-12">
+                                {{ form.target_variable.label(class="form-label") }}
+                                {{ form.target_variable(class="form-control", placeholder="Ex: aqi, pm25, temperature") }}
+                            </div>
+                            
+                            <div class="col-12">
+                                <label class="form-label">Features (Selecione múltiplas)</label>
+                                <div id="features-container">
+                                    <small class="text-muted">Selecione um dataset primeiro para carregar as features</small>
+                                </div>
+                            </div>
+                            
+                            <div class="col-12">
+                                {{ form.test_size.label(class="form-label") }}
+                                {{ form.test_size(class="form-control", type="number", step="0.01", min="0.1", max="0.5") }}
+                            </div>
+                            
+                            <div class="col-12">
+                                {{ form.submit(class="btn btn-success w-100") }}
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Models List -->
+        <div class="col-lg-6">
+            <div class="card card-custom">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-list me-2"></i>
+                        Meus Modelos
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if models %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Nome</th>
+                                    <th>Algoritmo</th>
+                                    <th>Precisão</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for model in models %}
+                                <tr>
+                                    <td>{{ model.name }}</td>
+                                    <td>
+                                        <span class="badge bg-info">{{ model.algorithm }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge {% if model.accuracy >= 0.85 %}bg-success{% else %}bg-warning{% endif %}">
+                                            {{ "%.2f"|format(model.accuracy * 100) }}%
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if model.is_active %}
+                                            <span class="badge bg-success">Ativo</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Inativo</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            {% if model.accuracy >= 0.85 %}
+                                                <a href="{{ url_for('main.toggle_model', model_id=model.id) }}" 
+                                                   class="btn btn-outline-{% if model.is_active %}warning{% else %}success{% endif %}">
+                                                    <i class="fas fa-{% if model.is_active %}pause{% else %}play{% endif %}"></i>
+                                                </a>
+                                            {% endif %}
+                                            <button class="btn btn-outline-info" onclick="showModelDetails({{ model.id }})">
+                                                <i class="fas fa-info"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-brain fa-3x mb-3"></i>
+                        <p>Nenhum modelo treinado ainda.</p>
+                        <p class="small">Use o formulário ao lado para treinar seu primeiro modelo.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Performance Guidelines -->
+            <div class="card card-custom mt-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-chart-line me-2"></i>
+                        Diretrizes de Performance
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        <div class="col-12">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span>Precisão ≥ 85%</span>
+                                <span class="badge bg-success">Excelente</span>
+                            </div>
+                            <small class="text-muted">Modelo considerado confiável e ativado automaticamente</small>
+                        </div>
+                        <div class="col-12 mt-2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span>Precisão 70-84%</span>
+                                <span class="badge bg-warning">Bom</span>
+                            </div>
+                            <small class="text-muted">Modelo útil mas precisa de melhorias</small>
+                        </div>
+                        <div class="col-12 mt-2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span>Precisão < 70%</span>
+                                <span class="badge bg-danger">Insuficiente</span>
+                            </div>
+                            <small class="text-muted">Recomenda-se retreinamento</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Model Details Modal -->
+<div class="modal fade" id="modelDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detalhes do Modelo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="modelDetailsContent">
+                <!-- Content will be loaded via JavaScript -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Load features when dataset is selected
+document.querySelector('select[name="dataset_id"]').addEventListener('change', function() {
+    const datasetId = this.value;
+    const featuresContainer = document.getElementById('features-container');
+    
+    if (!datasetId) {
+        featuresContainer.innerHTML = '<small class="text-muted">Selecione um dataset primeiro</small>';
+        return;
+    }
+    
+    // In a real implementation, you would fetch the features via AJAX
+    // For now, we'll show a loading message
+    featuresContainer.innerHTML = '<small class="text-muted">Carregando features...</small>';
+    
+    // Simulate API call
+    setTimeout(() => {
+        // This would be replaced with actual feature loading
+        featuresContainer.innerHTML = `
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="features" value="pm25" id="feature_pm25">
+                <label class="form-check-label" for="feature_pm25">PM2.5</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="features" value="pm10" id="feature_pm10">
+                <label class="form-check-label" for="feature_pm10">PM10</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="features" value="temperature" id="feature_temperature">
+                <label class="form-check-label" for="feature_temperature">Temperatura</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="features" value="humidity" id="feature_humidity">
+                <label class="form-check-label" for="feature_humidity">Umidade</label>
+            </div>
+        `;
+    }, 1000);
+});
+
+function showModelDetails(modelId) {
+    // In a real implementation, you would fetch model details via AJAX
+    const modalContent = document.getElementById('modelDetailsContent');
+    modalContent.innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Carregando...</span>
+            </div>
+        </div>
+    `;
+    
+    // Simulate API call
+    setTimeout(() => {
+        modalContent.innerHTML = `
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <strong>Nome:</strong> Modelo ${modelId}
+                </div>
+                <div class="col-md-6">
+                    <strong>Algoritmo:</strong> Random Forest
+                </div>
+                <div class="col-md-6">
+                    <strong>Precisão:</strong> 87.5%
+                </div>
+                <div class="col-md-6">
+                    <strong>Status:</strong> <span class="badge bg-success">Ativo</span>
+                </div>
+                <div class="col-12">
+                    <strong>Features:</strong> PM2.5, PM10, Temperatura, Umidade
+                </div>
+                <div class="col-12">
+                    <strong>Variável Alvo:</strong> AQI
+                </div>
+                <div class="col-12">
+                    <strong>Data de Treinamento:</strong> 15/11/2024
+                </div>
+            </div>
+        `;
+    }, 1000);
+    
+    const modal = new bootstrap.Modal(document.getElementById('modelDetailsModal'));
+    modal.show();
+}
+</script>
+{% endblock %}
