@@ -136,6 +136,7 @@
         </div>
     </div>
 </div>
+{% endblock %}
 
 {% block extra_js %}
 <script>
@@ -153,72 +154,118 @@ document.addEventListener('DOMContentLoaded', function() {
         stationSelect.innerHTML = '<option value="">Carregando estações...</option>';
         stationSelect.disabled = true;
         submitBtn.disabled = true;
-        stationInfo.textContent = 'Selecione uma estação para ver informações detalhadas';
+        stationInfo.textContent = 'Carregando informações das estações...';
         
-        // Se nenhum estado for selecionado, para a execução
+        // Se nenhum estado for selecionado, reseta os campos
         if (!state) {
             stationSelect.innerHTML = '<option value="">Selecione um estado primeiro</option>';
+            stationInfo.textContent = 'Selecione uma estação para ver informações detalhadas';
             return;
         }
 
-        // Gera a URL da API de forma segura usando url_for do Flask
-        const apiUrl = `{{ url_for('external.api_inmet_stations') }}?state=${state}`;
-
-        fetch(apiUrl)
+        // Fazer requisição para a API
+        fetch(`/external/api/inmet/stations?state=${state}`)
             .then(response => {
                 if (!response.ok) {
-                    throw new Error('A resposta da rede não foi OK');
+                    throw new Error(`Erro HTTP: ${response.status}`);
                 }
                 return response.json();
             })
             .then(data => {
+                console.log('Dados recebidos:', data); // Para debug
+                
                 if (data.success && data.stations && data.stations.length > 0) {
                     stationSelect.innerHTML = '<option value="">Selecione uma estação</option>';
+                    
                     data.stations.forEach(station => {
                         const option = document.createElement('option');
                         option.value = station.code;
                         option.textContent = `${station.name} (${station.code})`;
-                        option.dataset.info = `Lat: ${station.latitude}, Lon: ${station.longitude}`;
+                        // Armazena todas as informações da estação
+                        option.dataset.station = JSON.stringify(station);
                         stationSelect.appendChild(option);
                     });
-                    // Habilita o seletor de estações, mas mantém o botão de busca desabilitado
+                    
                     stationSelect.disabled = false;
+                    stationInfo.textContent = `${data.stations.length} estações encontradas. Selecione uma para ver detalhes.`;
                 } else {
-                    stationSelect.innerHTML = '<option value="">Nenhuma estação encontrada</option>';
+                    stationSelect.innerHTML = '<option value="">Nenhuma estação encontrada para este estado</option>';
+                    stationInfo.textContent = 'Nenhuma estação disponível para o estado selecionado.';
                 }
             })
             .catch(error => {
                 console.error('Erro ao buscar estações do INMET:', error);
                 stationSelect.innerHTML = '<option value="">Erro ao carregar estações</option>';
+                stationInfo.textContent = 'Erro ao carregar estações. Tente novamente.';
+                stationInfo.className = 'form-text text-danger';
             });
+    }
+
+    // Função para atualizar informações da estação selecionada
+    function updateStationInfo() {
+        const selectedOption = stationSelect.options[stationSelect.selectedIndex];
+        
+        if (selectedOption.value && selectedOption.dataset.station) {
+            try {
+                const station = JSON.parse(selectedOption.dataset.station);
+                stationInfo.innerHTML = `
+                    <strong>${station.name}</strong><br>
+                    <small>Código: ${station.code} | Estado: ${station.state}</small><br>
+                    <small>Lat: ${station.latitude} | Lon: ${station.longitude}</small>
+                `;
+                stationInfo.className = 'form-text text-success';
+            } catch (e) {
+                console.error('Erro ao parsear dados da estação:', e);
+                stationInfo.textContent = 'Informações da estação disponíveis';
+                stationInfo.className = 'form-text text-muted';
+            }
+        } else {
+            stationInfo.textContent = 'Selecione uma estação para ver informações detalhadas';
+            stationInfo.className = 'form-text text-muted';
+        }
     }
 
     // Função para atualizar o estado do botão de busca
     function updateSubmitButtonState() {
-        // Habilita o botão somente se um estado E uma estação válida forem selecionados
-        if (stateSelect.value && stationSelect.value) {
-            submitBtn.disabled = false;
-        } else {
-            submitBtn.disabled = true;
-        }
+        const isFormValid = stateSelect.value && 
+                           stationSelect.value && 
+                           document.getElementById('date_from').value && 
+                           document.getElementById('date_to').value;
+        
+        submitBtn.disabled = !isFormValid;
     }
-    
-    // Adiciona os gatilhos (event listeners)
-    stateSelect.addEventListener('change', loadINMETStations);
+
+    // Event listeners
+    stateSelect.addEventListener('change', function() {
+        loadINMETStations();
+        updateSubmitButtonState();
+    });
 
     stationSelect.addEventListener('change', function() {
-        const selectedOption = this.options[this.selectedIndex];
-        if (selectedOption && selectedOption.dataset.info) {
-            stationInfo.textContent = selectedOption.dataset.info;
-        } else {
-            stationInfo.textContent = 'Selecione uma estação para ver informações detalhadas';
-        }
-        updateSubmitButtonState(); // Atualiza o botão quando uma estação é selecionada
+        updateStationInfo();
+        updateSubmitButtonState();
     });
+
+    // Validar datas também
+    document.getElementById('date_from').addEventListener('change', updateSubmitButtonState);
+    document.getElementById('date_to').addEventListener('change', updateSubmitButtonState);
+
+    // Configurar datas padrão (últimos 7 dias)
+    const today = new Date().toISOString().split('T')[0];
+    const dateFrom = document.getElementById('date_from');
+    const dateTo = document.getElementById('date_to');
     
-    // Adiciona um listener para o seletor de estado também atualizar o botão
-    stateSelect.addEventListener('change', updateSubmitButtonState);
+    if (!dateTo.value) {
+        dateTo.value = today;
+    }
+    if (!dateFrom.value) {
+        const lastWeek = new Date();
+        lastWeek.setDate(lastWeek.getDate() - 7);
+        dateFrom.value = lastWeek.toISOString().split('T')[0];
+    }
+
+    // Atualizar estado inicial do botão
+    updateSubmitButtonState();
 });
 </script>
-{% endblock %}
 {% endblock %}

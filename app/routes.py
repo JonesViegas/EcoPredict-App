@@ -13,8 +13,11 @@ import os
 from datetime import datetime, timedelta
 import folium
 import joblib
+import  logging
 
 main_bp = Blueprint('main', __name__)
+
+logger = logging.getLogger(__name__)
 
 @main_bp.route('/')
 def index():
@@ -158,24 +161,23 @@ def upload_data():
 @main_bp.route('/datasets')
 @login_required
 def datasets():
-    user_datasets = Dataset.query.filter_by(user_id=current_user.id).order_by(Dataset.uploaded_at.desc()).all()
-    public_datasets = Dataset.query.filter_by(is_public=True).filter(Dataset.user_id != current_user.id).all()
-    
-    return render_template('datasets.html', 
-                         user_datasets=user_datasets, 
-                         public_datasets=public_datasets)
-
-@main_bp.route('/download-dataset/<int:dataset_id>')
-@login_required
-def download_dataset(dataset_id):
-    dataset = Dataset.query.get_or_404(dataset_id)
-    
-    # Check if user has access
-    if dataset.user_id != current_user.id and not dataset.is_public:
-        flash('Acesso negado a este dataset.', 'danger')
-        return redirect(url_for('main.datasets'))
-    
-    return send_file(dataset.file_path, as_attachment=True, download_name=dataset.original_filename)
+    """Página principal de datasets"""
+    try:
+        # Use 'uploaded_at' em vez de 'upload_date' - verifique qual campo existe no seu modelo
+        user_datasets = Dataset.query.filter_by(user_id=current_user.id).order_by(Dataset.uploaded_at.desc()).all()
+        
+        # Buscar datasets públicos (se aplicável)
+        public_datasets = Dataset.query.filter_by(is_public=True).filter(Dataset.user_id != current_user.id).all()
+        
+        return render_template('datasets.html', 
+                             user_datasets=user_datasets,
+                             public_datasets=public_datasets,
+                             title='Meus Datasets')
+        
+    except Exception as e:
+        logger.error(f"Erro ao carregar página de datasets: {e}")
+        flash('Erro ao carregar datasets.', 'error')
+        return redirect(url_for('main.dashboard'))
 
 @main_bp.route('/ml-models', methods=['GET', 'POST'])
 @login_required
@@ -439,19 +441,259 @@ def api_dataset_features(dataset_id):
             return jsonify({'success': False, 'error': 'Acesso negado'}), 403
         
         # Lê o dataset para extrair as colunas
-        df = pd.read_csv(dataset.file_path)
-        features = df.columns.tolist()
+        try:
+            if dataset.filename.endswith('.csv'):
+                df = pd.read_csv(dataset.file_path, nrows=5)  # Lê apenas as primeiras linhas
+            else:
+                df = pd.read_excel(dataset.file_path, nrows=5)
+            
+            features = df.columns.tolist()
+            
+            # Remove colunas não úteis para ML
+            excluded_columns = [
+                'datetime', 'date', 'time', 'timestamp', 
+                'location', 'city', 'country', 'state', 
+                'latitude', 'longitude', 'unit', 'id',
+                'Unnamed: 0', 'index'
+            ]
+            
+            # Filtra features
+            features = [
+                f for f in features 
+                if (f not in excluded_columns and 
+                    not f.startswith('Unnamed') and 
+                    not f.startswith('_') and
+                    str(f).strip() != '')
+            ]
+            
+            return jsonify({
+                'success': True, 
+                'features': features,
+                'dataset_name': dataset.original_filename,
+                'total_rows': dataset.rows_count
+            })
+            
+        except Exception as e:
+            logger.error(f"Erro ao ler dataset {dataset_id}: {e}")
+            return jsonify({
+                'success': False, 
+                'error': f'Erro ao ler arquivo: {str(e)}'
+            }), 500
         
-        # Remove colunas não úteis para ML
-        excluded_columns = ['datetime', 'date', 'time', 'location', 'city', 'country', 'latitude', 'longitude', 'unit']
-        features = [f for f in features if f not in excluded_columns and not f.startswith('Unnamed')]
+    except Exception as e:
+        logger.error(f"Erro ao buscar features do dataset {dataset_id}: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+    
+@main_bp.route('/datasets/<int:dataset_id>/export')
+@login_required
+def export_dataset(dataset_id):
+    """Exportar dataset"""
+    try:
+        dataset = Dataset.query.filter_by(id=dataset_id, user_id=current_user.id).first_or_404()
+        
+        # Verificar se o caminho do arquivo é absoluto ou relativo
+        file_path = dataset.file_path
+        
+        # Se o caminho não for absoluto, construir o caminho completo
+        if not os.path.isabs(file_path):
+            file_path = os.path.join(current_app.root_path, file_path)
+        
+        # Verificar se o arquivo existe
+        if not os.path.exists(file_path):
+            logger.error(f"Arquivo não encontrado: {file_path}")
+            logger.error(f"Caminho atual de trabalho: {os.getcwd()}")
+            flash('Arquivo não encontrado.', 'error')
+            return redirect(url_for('main.datasets'))
+        
+        # Nome do arquivo para download
+        download_name = f"export_{dataset.original_filename}"
+        
+        return send_file(
+            file_path,
+            as_attachment=True,
+            download_name=download_name,
+            mimetype='text/csv'
+        )
+        
+    except Exception as e:
+        logger.error(f"Erro ao exportar dataset {dataset_id}: {e}")
+        flash('Erro ao exportar dataset.', 'error')
+        return redirect(url_for('main.datasets'))
+    
+@main_bp.route('/datasets/<int:dataset_id>/preview')
+@login_required
+def dataset_preview(dataset_id):
+    """Retorna preview do dataset para visualização"""
+    try:
+        dataset = Dataset.query.filter_by(id=dataset_id, user_id=current_user.id).first_or_404()
+        
+        # Verificar se o arquivo existe
+        if not os.path.exists(dataset.file_path):
+            return jsonify({'success': False, 'error': 'Arquivo não encontrado'}), 404
+        
+        # Ler o arquivo CSV
+        df = pd.read_csv(dataset.file_path)
+        
+        # Preparar dados para preview (primeiras 10 linhas)
+        preview_data = {
+            'headers': df.columns.tolist(),
+            'rows': df.head(10).fillna('N/A').values.tolist()
+        }
         
         return jsonify({
-            'success': True, 
-            'features': features,
-            'dataset_name': dataset.original_filename
+            'success': True,
+            'dataset': {
+                'id': dataset.id,
+                'original_filename': dataset.original_filename,
+                'rows_count': dataset.rows_count,
+                'columns_count': dataset.columns_count,
+                'data_quality_score': dataset.data_quality_score,
+                'description': dataset.description
+            },
+            'preview_data': preview_data
         })
         
     except Exception as e:
-        logger.error(f"Erro ao buscar features do dataset: {e}")
+        logger.error(f"Erro ao fazer preview do dataset {dataset_id}: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/download-dataset/<int:dataset_id>')
+@login_required
+def download_dataset(dataset_id):
+    """Download do dataset original"""
+    try:
+        dataset = Dataset.query.filter_by(id=dataset_id, user_id=current_user.id).first_or_404()
+        
+        # Verificar se o caminho do arquivo é absoluto ou relativo
+        file_path = dataset.file_path
+        
+        # Se o caminho não for absoluto, construir o caminho completo
+        if not os.path.isabs(file_path):
+            file_path = os.path.join(current_app.root_path, file_path)
+        
+        if not os.path.exists(file_path):
+            logger.error(f"Arquivo não encontrado para download: {file_path}")
+            flash('Arquivo não encontrado.', 'error')
+            return redirect(url_for('main.datasets'))
+        
+        return send_file(
+            file_path,
+            as_attachment=True,
+            download_name=dataset.original_filename,
+            mimetype='text/csv'
+        )
+        
+    except Exception as e:
+        logger.error(f"Erro ao fazer download do dataset {dataset_id}: {e}")
+        flash('Erro ao fazer download do dataset.', 'error')
+        return redirect(url_for('main.datasets'))
+
+@main_bp.route('/api/datasets/<int:dataset_id>/preview')
+@login_required
+def api_dataset_preview(dataset_id):
+    """API para preview do dataset"""
+    try:
+        dataset = Dataset.query.filter_by(id=dataset_id, user_id=current_user.id).first_or_404()
+        
+        # Ler o arquivo CSV
+        df = pd.read_csv(dataset.file_path)
+        
+        # Preparar preview (primeiras 10 linhas)
+        preview_data = {
+            'headers': df.columns.tolist(),
+            'rows': df.head(10).fillna('').values.tolist(),
+            'total_rows': len(df),
+            'total_columns': len(df.columns)
+        }
+        
+        return jsonify({
+            'success': True,
+            'dataset': {
+                'id': dataset.id,
+                'filename': dataset.original_filename,
+                'description': dataset.description,
+                'rows_count': dataset.rows_count,
+                'columns_count': dataset.columns_count,
+                'quality_score': dataset.data_quality_score,
+                'file_size': dataset.file_size,
+                'uploaded_at': dataset.uploaded_at.isoformat() if dataset.uploaded_at else None
+            },
+            'preview': preview_data
+        })
+        
+    except Exception as e:
+        logger.error(f"Erro no preview do dataset {dataset_id}: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/api/datasets/<int:dataset_id>/info')
+@login_required
+def api_dataset_info(dataset_id):
+    """API para informações detalhadas do dataset"""
+    try:
+        dataset = Dataset.query.filter_by(id=dataset_id, user_id=current_user.id).first_or_404()
+        
+        # Ler o arquivo para análise detalhada
+        df = pd.read_csv(dataset.file_path)
+        
+        # Estatísticas básicas
+        numeric_columns = df.select_dtypes(include=['number']).columns
+        stats = {}
+        for col in numeric_columns:
+            stats[col] = {
+                'min': float(df[col].min()),
+                'max': float(df[col].max()),
+                'mean': float(df[col].mean()),
+                'std': float(df[col].std())
+            }
+        
+        # Informações de missing data
+        missing_data = df.isnull().sum().to_dict()
+        missing_percentage = {col: (count / len(df)) * 100 for col, count in missing_data.items()}
+        
+        return jsonify({
+            'success': True,
+            'dataset': {
+                'id': dataset.id,
+                'filename': dataset.original_filename,
+                'description': dataset.description,
+                'rows_count': dataset.rows_count,
+                'columns_count': dataset.columns_count,
+                'quality_score': dataset.data_quality_score,
+                'file_size_mb': round(dataset.file_size / (1024 * 1024), 2),
+                'uploaded_at': dataset.uploaded_at.strftime('%d/%m/%Y %H:%M') if dataset.uploaded_at else 'N/A'
+            },
+            'analysis': {
+                'columns': df.columns.tolist(),
+                'data_types': df.dtypes.astype(str).to_dict(),
+                'missing_data': missing_data,
+                'missing_percentage': missing_percentage,
+                'stats': stats
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Erro nas informações do dataset {dataset_id}: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/datasets/<int:dataset_id>/download')
+@login_required
+def download_user_dataset(dataset_id):  # Este nome deve corresponder ao usado no template
+    """Download do dataset original"""
+    try:
+        dataset = Dataset.query.filter_by(id=dataset_id, user_id=current_user.id).first_or_404()
+        
+        if not os.path.exists(dataset.file_path):
+            flash('Arquivo não encontrado.', 'error')
+            return redirect(url_for('main.datasets'))
+        
+        return send_file(
+            dataset.file_path,
+            as_attachment=True,
+            download_name=dataset.original_filename,
+            mimetype='text/csv'
+        )
+        
+    except Exception as e:
+        logger.error(f"Erro ao fazer download do dataset {dataset_id}: {e}")
+        flash('Erro ao fazer download do dataset.', 'error')
+        return redirect(url_for('main.datasets'))

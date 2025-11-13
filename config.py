@@ -29,7 +29,7 @@ class Config:
     
     # File upload settings
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024
-    UPLOAD_FOLDER = 'instance/uploads'
+    UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads')
     ALLOWED_EXTENSIONS = {'csv', 'xlsx', 'xls'}
     
     # ML Model paths

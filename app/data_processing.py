@@ -3,6 +3,8 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.impute import SimpleImputer
 import warnings
+import logging
+
 warnings.filterwarnings('ignore')
 
 def clean_dataset(df):
@@ -122,3 +124,64 @@ def calculate_feature_importance(model, feature_names):
     except:
         pass
     return None
+
+def validate_air_quality_data(df):
+    """
+    Valida dados de qualidade do ar verificando valores ausentes e ranges
+    """
+    try:
+        validation_results = {
+            'is_valid': True,
+            'issues': [],
+            'missing_data': {},
+            'out_of_range': {}
+        }
+        
+        # Verificar valores ausentes
+        missing_counts = df.isnull().sum()
+        total_cells = len(df) * len(df.columns)
+        missing_percentage = (missing_counts.sum() / total_cells) * 100
+        
+        if missing_percentage > 0:
+            validation_results['missing_data'] = {
+                'total_missing': missing_counts.sum(),
+                'missing_percentage': missing_percentage,
+                'columns_missing': missing_counts[missing_counts > 0].to_dict()
+            }
+            validation_results['issues'].append(f"Dados ausentes: {missing_percentage:.1f}%")
+        
+        # Verificar ranges para colunas conhecidas
+        expected_ranges = {
+            'pm25': (0, 500),
+            'pm10': (0, 600),
+            'o3': (0, 200),
+            'co': (0, 50),
+            'so2': (0, 100),
+            'no2': (0, 200),
+            'temperature': (-50, 60),
+            'humidity': (0, 100),
+            'pressure': (800, 1100),
+            'wind_speed': (0, 100)
+        }
+        
+        for column, (min_val, max_val) in expected_ranges.items():
+            if column in df.columns:
+                out_of_range = df[(df[column] < min_val) | (df[column] > max_val)]
+                if not out_of_range.empty:
+                    validation_results['out_of_range'][column] = len(out_of_range)
+                    validation_results['issues'].append(f"Valores fora do range em {column}: {len(out_of_range)} registros")
+        
+        # Se houver muitos problemas, marcar como inválido
+        if missing_percentage > 50 or len(validation_results['issues']) > 5:
+            validation_results['is_valid'] = False
+        
+        return validation_results
+        
+    except Exception as e:
+        logger.error(f"Erro na validação de dados: {e}")
+        return {
+            'is_valid': False,
+            'issues': [f"Erro na validação: {str(e)}"],
+            'missing_data': {},
+            'out_of_range': {}
+        }
