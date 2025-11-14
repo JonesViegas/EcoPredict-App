@@ -1,31 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Mapa Interativo - EcoPredict{% endblock %}
 
-{% block extra_css %}
-<style>
-    #map {
-        height: 600px;
-        border-radius: 15px;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-    }
-    
-    .map-container {
-        position: relative;
-    }
-    
-    .map-controls {
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        z-index: 1000;
-        background: white;
-        padding: 10px;
-        border-radius: 8px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    }
-</style>
-{% endblock %}
-
 {% block content %}
 <div class="container-fluid py-4">
     <div class="row mb-4">
@@ -37,65 +12,142 @@
             <p class="text-muted">Visualize dados de qualidade do ar em tempo real</p>
         </div>
         <div class="col-auto">
-            <a href="{{ url_for('main.add_air_quality_data') }}" class="btn btn-success">
-                <i class="fas fa-plus me-2"></i>
-                Adicionar Dados
-            </a>
+            <div class="btn-group">
+                <button class="btn btn-outline-primary" onclick="refreshMapData()">
+                    <i class="fas fa-sync-alt me-1"></i>Atualizar Dados
+                </button>
+                <button class="btn btn-outline-info" onclick="showMapLegend()">
+                    <i class="fas fa-info-circle me-1"></i>Legenda
+                </button>
+            </div>
         </div>
     </div>
 
     <div class="row">
+        <!-- Mapa -->
         <div class="col-12">
             <div class="card card-custom">
-                <div class="card-body p-0">
-                    <div class="map-container">
-                        <div class="map-controls">
-                            <div class="btn-group">
-                                <button class="btn btn-sm btn-outline-primary" onclick="refreshMap()">
-                                    <i class="fas fa-sync-alt"></i>
-                                </button>
-                                <button class="btn btn-sm btn-outline-info" onclick="focusOnBrazil()">
-                                    <i class="fas fa-crosshairs"></i>
-                                </button>
-                            </div>
-                        </div>
-                        {{ map_html|safe }}
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-globe-americas me-2"></i>
+                        Mapa da Qualidade do Ar - Brasil
+                    </h5>
+                    <div class="d-flex align-items-center">
+                        <span class="badge bg-success me-2" id="liveIndicator">
+                            <i class="fas fa-circle me-1"></i>Dados em Tempo Real
+                        </span>
+                        <span class="text-muted" id="lastUpdate">
+                            Atualizado: {{ now.strftime('%H:%M') if now else '--:--' }}
+                        </span>
                     </div>
+                </div>
+                <div class="card-body p-0">
+                    <div id="map" style="height: 600px; width: 100%;"></div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Legend -->
+    <!-- Legenda do Mapa -->
     <div class="row mt-4">
         <div class="col-12">
             <div class="card card-custom">
-                <div class="card-header">
-                    <h6 class="card-title mb-0">
-                        <i class="fas fa-info-circle me-2"></i>
-                        Legenda do AQI
-                    </h6>
-                </div>
                 <div class="card-body">
-                    <div class="row g-2 text-center">
-                        <div class="col-md-2">
-                            <span class="badge bg-success p-2 w-100">0-50<br>Excelente</span>
+                    <h6 class="card-title">Legenda - Índice de Qualidade do Ar (AQI)</h6>
+                    <div class="row text-center">
+                        <div class="col">
+                            <div class="legend-item bg-success text-white p-2 rounded">
+                                <small>0-50<br>Bom</small>
+                            </div>
                         </div>
-                        <div class="col-md-2">
-                            <span class="badge bg-info p-2 w-100">51-100<br>Bom</span>
+                        <div class="col">
+                            <div class="legend-item bg-info text-white p-2 rounded">
+                                <small>51-100<br>Moderado</small>
+                            </div>
                         </div>
-                        <div class="col-md-2">
-                            <span class="badge bg-warning p-2 w-100">101-150<br>Moderado</span>
+                        <div class="col">
+                            <div class="legend-item bg-warning text-white p-2 rounded">
+                                <small>101-150<br>Ruim</small>
+                            </div>
                         </div>
-                        <div class="col-md-2">
-                            <span class="badge bg-orange p-2 w-100 text-white">151-200<br>Ruim</span>
+                        <div class="col">
+                            <div class="legend-item bg-orange text-white p-2 rounded">
+                                <small>151-200<br>Muito Ruim</small>
+                            </div>
                         </div>
-                        <div class="col-md-2">
-                            <span class="badge bg-danger p-2 w-100">201-300<br>Muito Ruim</span>
+                        <div class="col">
+                            <div class="legend-item bg-danger text-white p-2 rounded">
+                                <small>201-300<br>Perigoso</small>
+                            </div>
                         </div>
-                        <div class="col-md-2">
-                            <span class="badge bg-dark p-2 w-100">301+<br>Perigoso</span>
+                        <div class="col">
+                            <div class="legend-item bg-dark text-white p-2 rounded">
+                                <small>301+<br>Emergência</small>
+                            </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Detalhes da Cidade -->
+<div class="modal fade" id="cityModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="cityModalTitle">
+                    <i class="fas fa-city me-2"></i>
+                    Detalhes da Qualidade do Ar
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="cityModalContent">
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-2">Carregando dados da cidade...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                <button type="button" class="btn btn-primary" onclick="loadHistoricalData()">
+                    <i class="fas fa-chart-line me-1"></i>Ver Histórico
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Legenda -->
+<div class="modal fade" id="legendModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Legenda do Mapa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="legend-details">
+                    <div class="legend-item mb-2 p-2 bg-success text-white rounded">
+                        <strong>Bom (0-50):</strong> Qualidade do ar satisfatória, risco mínimo
+                    </div>
+                    <div class="legend-item mb-2 p-2 bg-info text-white rounded">
+                        <strong>Moderado (51-100):</strong> Qualidade aceitável, risco moderado para grupos sensíveis
+                    </div>
+                    <div class="legend-item mb-2 p-2 bg-warning text-white rounded">
+                        <strong>Ruim (101-150):</strong> Qualidade insalubre para grupos sensíveis
+                    </div>
+                    <div class="legend-item mb-2 p-2 bg-orange text-white rounded">
+                        <strong>Muito Ruim (151-200):</strong> Qualidade insalubre para todos
+                    </div>
+                    <div class="legend-item mb-2 p-2 bg-danger text-white rounded">
+                        <strong>Perigoso (201-300):</strong> Alerta de saúde, efeitos graves
+                    </div>
+                    <div class="legend-item mb-2 p-2 bg-dark text-white rounded">
+                        <strong>Emergência (301+):</strong> Alertas de emergência para toda população
                     </div>
                 </div>
             </div>
@@ -104,34 +156,435 @@
 </div>
 {% endblock %}
 
+{% block extra_css %}
+<style>
+.bg-orange {
+    background-color: #fd7e14 !important;
+}
+
+.legend-item {
+    transition: transform 0.2s;
+}
+
+.legend-item:hover {
+    transform: scale(1.02);
+}
+
+#map {
+    border-radius: 0 0 0.375rem 0.375rem;
+}
+
+.leaflet-popup-content {
+    font-family: 'Inter', sans-serif;
+}
+
+.aqi-marker {
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    border: 3px solid white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 12px;
+    color: white;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+}
+
+.marker-tooltip {
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 8px 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    font-family: 'Inter', sans-serif;
+}
+</style>
+{% endblock %}
+
 {% block extra_js %}
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<!-- Leaflet JavaScript -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 <script>
-function refreshMap() {
-    location.reload();
+// Variáveis globais
+let map;
+let markers = [];
+let currentCity = '';
+
+// Dados das cidades do backend
+const citiesData = {{ cities_data|tojson }};
+
+// Função para obter cor baseada no AQI
+function getAqiColor(aqi) {
+    if (aqi <= 50) return '#28a745';
+    if (aqi <= 100) return '#17a2b8';
+    if (aqi <= 150) return '#ffc107';
+    if (aqi <= 200) return '#fd7e14';
+    if (aqi <= 300) return '#dc3545';
+    return '#6f42c1';
 }
 
-function focusOnBrazil() {
-    // This would need to be implemented with Leaflet/OpenStreetMap
-    // For now, just reload the map
-    refreshMap();
+// Função para obter classe de badge baseada no AQI
+function getAqiBadgeClass(aqi) {
+    if (aqi <= 50) return 'bg-success';
+    if (aqi <= 100) return 'bg-info';
+    if (aqi <= 150) return 'bg-warning';
+    if (aqi <= 200) return 'bg-orange';
+    if (aqi <= 300) return 'bg-danger';
+    return 'bg-dark';
 }
 
-// Load real-time data
-async function loadRealTimeData() {
-    try {
-        const response = await fetch('/api/air-quality-data');
-        const data = await response.json();
-        console.log('Real-time data loaded:', data);
-        // Here you would update the map with new data
-    } catch (error) {
-        console.error('Error loading real-time data:', error);
+// Função para obter descrição do AQI
+function getAqiDescription(aqi) {
+    if (aqi <= 50) return 'Bom';
+    if (aqi <= 100) return 'Moderado';
+    if (aqi <= 150) return 'Ruim';
+    if (aqi <= 200) return 'Muito Ruim';
+    if (aqi <= 300) return 'Perigoso';
+    return 'Emergência';
+}
+
+// Inicializar mapa
+function initMap() {
+    // Centro do Brasil
+    map = L.map('map').setView([-15.7801, -47.9292], 4);
+
+    // Adicionar tile layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 18
+    }).addTo(map);
+
+    // Adicionar marcadores para cada cidade
+    Object.entries(citiesData).forEach(([city, data]) => {
+        const aqi = data.aqi || 50;
+        const color = getAqiColor(aqi);
+        
+        // Criar ícone personalizado
+        const customIcon = L.divIcon({
+            className: 'custom-marker',
+            html: `
+                <div class="aqi-marker" style="background-color: ${color};">
+                    ${Math.round(aqi)}
+                </div>
+            `,
+            iconSize: [35, 35],
+            iconAnchor: [17, 17]
+        });
+
+        // Criar marcador
+        const marker = L.marker([data.lat, data.lon], { icon: customIcon })
+            .addTo(map)
+            .bindTooltip(`
+                <div class="marker-tooltip">
+                    <strong>${city}</strong><br>
+                    AQI: ${Math.round(aqi)} (${getAqiDescription(aqi)})<br>
+                    PM2.5: ${data.pm25 ? data.pm25.toFixed(1) : 'N/A'} µg/m³<br>
+                    Temp: ${data.temp ? data.temp.toFixed(1) + '°C' : 'N/A'}
+                </div>
+            `, {
+                permanent: false,
+                direction: 'top',
+                offset: [0, -10]
+            })
+            .on('click', function() {
+                showCityDetails(city, data);
+            });
+
+        markers.push(marker);
+    });
+
+    // Atualizar indicador de última atualização
+    updateLastUpdateTime();
+}
+
+// Mostrar detalhes da cidade
+function showCityDetails(city, data) {
+    currentCity = city;
+    
+    const modalTitle = document.getElementById('cityModalTitle');
+    const modalContent = document.getElementById('cityModalContent');
+    
+    modalTitle.innerHTML = `<i class="fas fa-city me-2"></i>${city} - Qualidade do Ar`;
+    
+    const aqi = data.aqi || 50;
+    const badgeClass = getAqiBadgeClass(aqi);
+    const description = getAqiDescription(aqi);
+    
+    modalContent.innerHTML = `
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card ${badgeClass.replace('bg-', 'border-')} text-${badgeClass.replace('bg-', '')} mb-3">
+                    <div class="card-body text-center">
+                        <h3 class="card-title">${Math.round(aqi)}</h3>
+                        <p class="card-text">Índice AQI</p>
+                        <span class="badge ${badgeClass}">${description}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card border-secondary mb-3">
+                    <div class="card-body">
+                        <h6 class="card-title">Poluentes Principais</h6>
+                        <div class="pollutant-list">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>PM2.5:</span>
+                                <strong>${data.pm25 ? data.pm25.toFixed(1) + ' µg/m³' : 'N/A'}</strong>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>PM10:</span>
+                                <strong>${data.pm10 ? data.pm10.toFixed(1) + ' µg/m³' : 'N/A'}</strong>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>O₃:</span>
+                                <strong>${data.o3 ? data.o3.toFixed(1) + ' ppb' : 'N/A'}</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card border-info">
+                    <div class="card-body">
+                        <h6 class="card-title">Condições Meteorológicas</h6>
+                        <div class="weather-info">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Temperatura:</span>
+                                <strong>${data.temp ? data.temp.toFixed(1) + '°C' : 'N/A'}</strong>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Umidade:</span>
+                                <strong>${data.humidity ? data.humidity + '%' : 'N/A'}</strong>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span>Pressão:</span>
+                                <strong>${data.pressure ? data.pressure + ' hPa' : 'N/A'}</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card border-warning">
+                    <div class="card-body">
+                        <h6 class="card-title">Recomendações</h6>
+                        <div class="recommendations">
+                            ${getHealthRecommendations(aqi)}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-3">
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>Fonte dos dados:</strong> ${getDataSourceInfo(city)}
+            </div>
+        </div>
+    `;
+    
+    const modal = new bootstrap.Modal(document.getElementById('cityModal'));
+    modal.show();
+}
+
+// Obter recomendações de saúde
+function getHealthRecommendations(aqi) {
+    if (aqi <= 50) {
+        return `
+            <p class="mb-1">✅ Condições ideais para atividades ao ar livre</p>
+            <p class="mb-0">✅ Qualidade do ar satisfatória</p>
+        `;
+    } else if (aqi <= 100) {
+        return `
+            <p class="mb-1">⚠️ Grupos sensíveis devem reduzir atividades intensas</p>
+            <p class="mb-0">✅ Condições aceitáveis para a maioria</p>
+        `;
+    } else if (aqi <= 150) {
+        return `
+            <p class="mb-1">⚠️ Grupos sensíveis devem evitar atividades ao ar livre</p>
+            <p class="mb-0">⚠️ Todos devem reduzir atividades prolongadas</p>
+        `;
+    } else if (aqi <= 200) {
+        return `
+            <p class="mb-1">🚫 Grupos sensíveis devem permanecer em ambientes fechados</p>
+            <p class="mb-0">⚠️ Todos devem evitar atividades ao ar livre</p>
+        `;
+    } else {
+        return `
+            <p class="mb-1">🚫 Evitar qualquer atividade ao ar livre</p>
+            <p class="mb-0">🚫 Usar máscara de proteção se necessário sair</p>
+        `;
     }
 }
 
-// Refresh data every 5 minutes
-setInterval(loadRealTimeData, 300000);
+// Obter informações da fonte de dados
+function getDataSourceInfo(city) {
+    return `Sistema EcoPredict - Dados combinados de fontes oficiais e estações de monitoramento em ${city}.`;
+}
 
-// Initial load
-loadRealTimeData();
+// Atualizar dados do mapa
+// Atualizar dados do mapa com API
+async function refreshMapData() {
+    const btn = event.target;
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Atualizando...';
+    btn.disabled = true;
+    
+    try {
+        const response = await fetch('/api/map/data');
+        const result = await response.json();
+        
+        if (result.success) {
+            // Atualizar dados das cidades
+            Object.entries(result.data).forEach(([city, data]) => {
+                if (citiesData[city]) {
+                    citiesData[city].aqi = data.aqi;
+                    citiesData[city].pm25 = data.pm25;
+                    citiesData[city].pm10 = data.pm10;
+                    citiesData[city].o3 = data.o3;
+                    citiesData[city].temp = data.temp;
+                    citiesData[city].humidity = data.humidity;
+                    citiesData[city].pressure = data.pressure;
+                }
+            });
+            
+            // Atualizar marcadores no mapa
+            updateMapMarkers();
+            
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+            updateLastUpdateTime();
+            showToast('Dados do mapa atualizados com sucesso!', 'success');
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        console.error('Erro ao atualizar dados:', error);
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+        showToast('Erro ao atualizar dados do mapa', 'danger');
+    }
+}
+
+// Atualizar marcadores do mapa
+function updateMapMarkers() {
+    // Remover marcadores antigos
+    markers.forEach(marker => map.removeLayer(marker));
+    markers = [];
+    
+    // Adicionar novos marcadores com dados atualizados
+    Object.entries(citiesData).forEach(([city, data]) => {
+        const aqi = data.aqi || 50;
+        const color = getAqiColor(aqi);
+        
+        const customIcon = L.divIcon({
+            className: 'custom-marker',
+            html: `
+                <div class="aqi-marker" style="background-color: ${color};">
+                    ${Math.round(aqi)}
+                </div>
+            `,
+            iconSize: [35, 35],
+            iconAnchor: [17, 17]
+        });
+
+        const marker = L.marker([data.lat, data.lon], { icon: customIcon })
+            .addTo(map)
+            .bindTooltip(`
+                <div class="marker-tooltip">
+                    <strong>${city}</strong><br>
+                    AQI: ${Math.round(aqi)} (${getAqiDescription(aqi)})<br>
+                    PM2.5: ${data.pm25 ? data.pm25.toFixed(1) : 'N/A'} µg/m³<br>
+                    Temp: ${data.temp ? data.temp.toFixed(1) + '°C' : 'N/A'}
+                </div>
+            `)
+            .on('click', function() {
+                showCityDetails(city, data);
+            });
+
+        markers.push(marker);
+    });
+}
+
+// Atualizar horário da última atualização
+function updateLastUpdateTime() {
+    const now = new Date();
+    const timeString = now.toLocaleTimeString('pt-BR', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+    });
+    document.getElementById('lastUpdate').textContent = `Atualizado: ${timeString}`;
+}
+
+// Mostrar legenda
+function showMapLegend() {
+    const modal = new bootstrap.Modal(document.getElementById('legendModal'));
+    modal.show();
+}
+
+// Carregar dados históricos
+function loadHistoricalData() {
+    if (!currentCity) return;
+    
+    showToast(`Carregando dados históricos para ${currentCity}...`, 'info');
+    
+    // Aqui você implementaria a busca de dados históricos
+    setTimeout(() => {
+        showToast(`Dados históricos de ${currentCity} carregados`, 'success');
+    }, 1500);
+}
+
+// Função de toast
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast align-items-center text-white bg-${type} border-0 position-fixed bottom-0 end-0 m-3`;
+    toast.style.zIndex = '9999';
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">
+                <i class="fas fa-${getToastIcon(type)} me-2"></i>
+                ${message}
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    `;
+    document.body.appendChild(toast);
+    
+    const bsToast = new bootstrap.Toast(toast, { delay: 3000 });
+    bsToast.show();
+    
+    toast.addEventListener('hidden.bs.toast', () => {
+        toast.remove();
+    });
+}
+
+function getToastIcon(type) {
+    const icons = {
+        'success': 'check-circle',
+        'danger': 'exclamation-triangle',
+        'warning': 'exclamation-circle',
+        'info': 'info-circle'
+    };
+    return icons[type] || 'info-circle';
+}
+
+// Inicializar mapa quando a página carregar
+document.addEventListener('DOMContentLoaded', function() {
+    initMap();
+    
+    // Atualizar dados automaticamente a cada 5 minutos
+    setInterval(() => {
+        refreshMapData();
+    }, 300000);
+});
 </script>
 {% endblock %}

@@ -1,0 +1,633 @@
+{% extends "base.html" %}
+{% block title %}Painel Admin - EcoPredict{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h3 mb-0">
+                <i class="fas fa-cog me-2"></i>
+                Painel Administrativo
+            </h1>
+            <p class="text-muted">Gerencie o sistema EcoPredict</p>
+        </div>
+        <div class="col-auto">
+            <div class="btn-group">
+                <button class="btn btn-outline-primary" onclick="refreshStats()">
+                    <i class="fas fa-sync-alt me-1"></i>Atualizar
+                </button>
+                <a href="{{ url_for('main.admin_system') }}" class="btn btn-outline-info">
+                    <i class="fas fa-server me-1"></i>Sistema
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alertas do Sistema -->
+    {% if active_alerts > 0 %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="alert alert-warning">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
+                    <div>
+                        <h5 class="alert-heading mb-1">{{ active_alerts }} Alertas Ativos</h5>
+                        <p class="mb-0">Existem alertas que requerem atenção no sistema.</p>
+                    </div>
+                    <div class="ms-auto">
+                        <a href="#" class="btn btn-outline-warning btn-sm">Ver Alertas</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Estatísticas em Tempo Real -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-line me-2"></i>
+                        Estatísticas do Sistema - Tempo Real
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row" id="realTimeStats">
+                        <div class="col-md-2 col-6 mb-3">
+                            <div class="text-center">
+                                <div class="cpu-gauge" data-value="0">
+                                    <i class="fas fa-microchip fa-2x text-primary mb-2"></i>
+                                    <h4 class="mb-0">0%</h4>
+                                    <small class="text-muted">CPU</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-2 col-6 mb-3">
+                            <div class="text-center">
+                                <div class="memory-gauge" data-value="0">
+                                    <i class="fas fa-memory fa-2x text-info mb-2"></i>
+                                    <h4 class="mb-0">0%</h4>
+                                    <small class="text-muted">Memória</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-2 col-6 mb-3">
+                            <div class="text-center">
+                                <div class="disk-gauge" data-value="0">
+                                    <i class="fas fa-hdd fa-2x text-warning mb-2"></i>
+                                    <h4 class="mb-0">0%</h4>
+                                    <small class="text-muted">Disco</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-2 col-6 mb-3">
+                            <div class="text-center">
+                                <div>
+                                    <i class="fas fa-users fa-2x text-success mb-2"></i>
+                                    <h4 class="mb-0" id="activeUsers">0</h4>
+                                    <small class="text-muted">Usuários Ativos</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-2 col-6 mb-3">
+                            <div class="text-center">
+                                <div>
+                                    <i class="fas fa-database fa-2x text-secondary mb-2"></i>
+                                    <h4 class="mb-0" id="todayDatasets">0</h4>
+                                    <small class="text-muted">Datasets Hoje</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-2 col-6 mb-3">
+                            <div class="text-center">
+                                <div>
+                                    <i class="fas fa-bell fa-2x text-danger mb-2"></i>
+                                    <h4 class="mb-0" id="activeAlerts">0</h4>
+                                    <small class="text-muted">Alertas Ativos</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cards de Estatísticas -->
+    <div class="row g-4 mb-4">
+        <!-- Usuários -->
+        <div class="col-xl-3 col-md-6">
+            <div class="card card-custom bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title mb-0">{{ total_users }}</h4>
+                            <p class="card-text opacity-75 mb-0">Total de Usuários</p>
+                            <small class="opacity-75">{{ recent_users }} novos (7 dias)</small>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-users fa-2x opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-dark bg-opacity-25">
+                    <a href="{{ url_for('main.admin_users') }}" class="text-white text-decoration-none">
+                        Gerenciar Usuários <i class="fas fa-arrow-right ms-1"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Datasets -->
+        <div class="col-xl-3 col-md-6">
+            <div class="card card-custom bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title mb-0">{{ total_datasets }}</h4>
+                            <p class="card-text opacity-75 mb-0">Total de Datasets</p>
+                            <small class="opacity-75">{{ disk_usage.total_mb }} MB usado</small>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-database fa-2x opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-dark bg-opacity-25">
+                    <a href="{{ url_for('main.admin_datasets') }}" class="text-white text-decoration-none">
+                        Gerenciar Datasets <i class="fas fa-arrow-right ms-1"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modelos ML -->
+        <div class="col-xl-3 col-md-6">
+            <div class="card card-custom bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title mb-0">{{ total_models }}</h4>
+                            <p class="card-text opacity-75 mb-0">Modelos ML</p>
+                            <small class="opacity-75">{{ models_active }} ativos, {{ models_training }} treinando</small>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-brain fa-2x opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-dark bg-opacity-25">
+                    <a href="{{ url_for('main.admin_models') }}" class="text-white text-decoration-none">
+                        Gerenciar Modelos <i class="fas fa-arrow-right ms-1"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Atividade -->
+        <div class="col-xl-3 col-md-6">
+            <div class="card card-custom bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title mb-0">{{ recent_activity }}</h4>
+                            <p class="card-text opacity-75 mb-0">Atividades (30 dias)</p>
+                            <small class="opacity-75">{{ total_alerts }} alertas totais</small>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-chart-bar fa-2x opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-dark bg-opacity-25">
+                    <a href="#" class="text-white text-decoration-none">
+                        Ver Relatórios <i class="fas fa-arrow-right ms-1"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Distribuição de Datasets -->
+        <div class="col-xl-6">
+            <div class="card card-custom">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-pie me-2"></i>
+                        Distribuição de Datasets
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="datasetsChart" height="250"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status dos Modelos -->
+        <div class="col-xl-6">
+            <div class="card card-custom">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-brain me-2"></i>
+                        Status dos Modelos ML
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="modelsChart" height="250"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logs do Sistema -->
+        <div class="col-12">
+            <div class="card card-custom">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-list-alt me-2"></i>
+                        Logs Recentes do Sistema
+                    </h5>
+                    <span class="badge bg-secondary">{{ system_logs|length }} registros</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive" style="max-height: 300px;">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th>Data/Hora</th>
+                                    <th>Nível</th>
+                                    <th>Módulo</th>
+                                    <th>Mensagem</th>
+                                    <th>Usuário</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log in system_logs %}
+                                <tr>
+                                    <td>
+                                        <small class="text-muted">{{ log.timestamp.strftime('%d/%m/%Y %H:%M') }}</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge 
+                                            {% if log.level == 'ERROR' %}bg-danger
+                                            {% elif log.level == 'WARNING' %}bg-warning
+                                            {% elif log.level == 'INFO' %}bg-info
+                                            {% else %}bg-secondary{% endif %}">
+                                            {{ log.level }}
+                                        </span>
+                                    </td>
+                                    <td>{{ log.module or 'Sistema' }}</td>
+                                    <td>
+                                        <small>{{ log.message[:100] }}{% if log.message|length > 100 %}...{% endif %}</small>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">{{ log.user_email or 'Sistema' }}</small>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted py-4">
+                                        <i class="fas fa-info-circle fa-2x mb-2 d-block"></i>
+                                        Nenhum log encontrado
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Alertas Recentes -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-bell me-2"></i>
+                            Alertas Recentes
+                        </h5>
+                        <span class="badge bg-warning">{{ unread_alerts }} não lidos</span>
+                    </div>
+                    <div class="card-body">
+                        {% if recent_alerts %}
+                        <div class="list-group">
+                            {% for alert in recent_alerts %}
+                            <div class="list-group-item list-group-item-action">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1">
+                                        <i class="fas fa-{{ 'exclamation-triangle text-danger' if alert.severity == 'high' else 'exclamation-circle text-warning' if alert.severity == 'medium' else 'info-circle text-info' }} me-2"></i>
+                                        {{ alert.title }}
+                                    </h6>
+                                    <small class="text-muted">{{ alert.created_at.strftime('%d/%m %H:%M') }}</small>
+                                </div>
+                                <p class="mb-1">{{ alert.message }}</p>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <small>
+                                        <span class="badge bg-{{ 'danger' if alert.severity == 'high' else 'warning' if alert.severity == 'medium' else 'info' }} me-2">
+                                            {{ alert.severity|upper }}
+                                        </span>
+                                        <span class="badge bg-secondary me-2">{{ alert.alert_type }}</span>
+                                        {% if not alert.is_read %}
+                                        <span class="badge bg-warning">NÃO LIDO</span>
+                                        {% endif %}
+                                    </small>
+                                    <small class="text-muted">Por: {{ alert.user.username }}</small>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-bell-slash fa-2x mb-2"></i>
+                            <p class="mb-0">Nenhum alerta recente</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ações Rápidas -->
+        <div class="col-12">
+            <div class="card card-custom">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-bolt me-2"></i>
+                        Ações Rápidas
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-2 col-6">
+                            <a href="{{ url_for('main.admin_users') }}" class="btn btn-outline-primary w-100 h-100 py-3">
+                                <i class="fas fa-user-cog fa-2x mb-2"></i><br>
+                                <small>Gerenciar Usuários</small>
+                            </a>
+                        </div>
+                        <div class="col-md-2 col-6">
+                            <a href="{{ url_for('main.admin_datasets') }}" class="btn btn-outline-success w-100 h-100 py-3">
+                                <i class="fas fa-database fa-2x mb-2"></i><br>
+                                <small>Gerenciar Datasets</small>
+                            </a>
+                        </div>
+                        <div class="col-md-2 col-6">
+                            <a href="{{ url_for('main.admin_models') }}" class="btn btn-outline-warning w-100 h-100 py-3">
+                                <i class="fas fa-brain fa-2x mb-2"></i><br>
+                                <small>Modelos ML</small>
+                            </a>
+                        </div>
+                        <div class="col-md-2 col-6">
+                            <a href="{{ url_for('main.admin_system') }}" class="btn btn-outline-info w-100 h-100 py-3">
+                                <i class="fas fa-server fa-2x mb-2"></i><br>
+                                <small>Configurações</small>
+                            </a>
+                        </div>
+                        <div class="col-md-2 col-6">
+                            <button class="btn btn-outline-secondary w-100 h-100 py-3" onclick="backupSystem()">
+                                <i class="fas fa-download fa-2x mb-2"></i><br>
+                                <small>Backup</small>
+                            </button>
+                        </div>
+                        <div class="col-md-2 col-6">
+                            <button class="btn btn-outline-dark w-100 h-100 py-3" onclick="clearSystemCache()">
+                                <i class="fas fa-broom fa-2x mb-2"></i><br>
+                                <small>Limpar Cache</small>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Segunda linha de ações -->
+                    <div class="row g-3 mt-2">
+                        <div class="col-md-2 col-6">
+                            <button class="btn btn-outline-success w-100 h-100 py-3" onclick="optimizeDatabase()">
+                                <i class="fas fa-database fa-2x mb-2"></i><br>
+                                <small>Otimizar BD</small>
+                            </button>
+                        </div>
+                        <div class="col-md-2 col-6">
+                            <button class="btn btn-outline-danger w-100 h-100 py-3" onclick="restartSystem()">
+                                <i class="fas fa-redo fa-2x mb-2"></i><br>
+                                <small>Reiniciar</small>
+                            </button>
+                        </div>
+                        <div class="col-md-2 col-6">
+                            <button class="btn btn-outline-primary w-100 h-100 py-3" onclick="downloadLogs()">
+                                <i class="fas fa-file-download fa-2x mb-2"></i><br>
+                                <small>Download Logs</small>
+                            </button>
+                        </div>
+                        <div class="col-md-2 col-6">
+                            <button class="btn btn-outline-warning w-100 h-100 py-3" onclick="clearLogs()">
+                                <i class="fas fa-trash fa-2x mb-2"></i><br>
+                                <small>Limpar Logs</small>
+                            </button>
+                        </div>
+                        <div class="col-md-4 col-12">
+                            <div class="d-flex align-items-center justify-content-center h-100 py-3">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="maintenanceModeGlobal" onchange="toggleMaintenanceModeGlobal()">
+                                    <label class="form-check-label" for="maintenanceModeGlobal">
+                                        <i class="fas fa-tools me-2"></i>Modo Manutenção
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+// Gráficos
+document.addEventListener('DOMContentLoaded', function() {
+    // Gráfico de distribuição de datasets
+    const datasetsCtx = document.getElementById('datasetsChart');
+    if (datasetsCtx) {
+        new Chart(datasetsCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Públicos', 'Privados'],
+                datasets: [{
+                    data: [{{ datasets_public }}, {{ datasets_private }}],
+                    backgroundColor: ['#28a745', '#6c757d'],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+    }
+
+    // Gráfico de status dos modelos
+    const modelsCtx = document.getElementById('modelsChart');
+    if (modelsCtx) {
+        new Chart(modelsCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Ativos', 'Treinando', 'Erro'],
+                datasets: [{
+                    label: 'Modelos',
+                    data: [{{ models_active }}, {{ models_training }}, {{ models_error }}],
+                    backgroundColor: ['#28a745', '#ffc107', '#dc3545'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+
+    // Carregar estatísticas em tempo real
+    refreshStats();
+});
+
+// Atualizar estatísticas em tempo real
+async function refreshStats() {
+    try {
+        const response = await fetch('/admin/api/system_stats');
+        const result = await response.json();
+        
+        if (result.success) {
+            const stats = result.stats;
+            
+            // Atualizar valores
+            document.querySelector('.cpu-gauge h4').textContent = stats.cpu_percent + '%';
+            document.querySelector('.memory-gauge h4').textContent = stats.memory_percent + '%';
+            document.querySelector('.disk-gauge h4').textContent = stats.disk_usage + '%';
+            document.getElementById('activeUsers').textContent = stats.active_users;
+            document.getElementById('todayDatasets').textContent = stats.total_datasets_today;
+            document.getElementById('activeAlerts').textContent = stats.active_alerts;
+            
+            // Atualizar cores baseadas nos valores
+            updateGaugeColor('.cpu-gauge', stats.cpu_percent);
+            updateGaugeColor('.memory-gauge', stats.memory_percent);
+            updateGaugeColor('.disk-gauge', stats.disk_usage);
+        }
+    } catch (error) {
+        console.error('Erro ao atualizar stats:', error);
+    }
+}
+
+function updateGaugeColor(selector, value) {
+    const element = document.querySelector(selector);
+    const icon = element.querySelector('i');
+    
+    if (value > 80) {
+        icon.className = icon.className.replace(/text-\w+/, 'text-danger');
+    } else if (value > 60) {
+        icon.className = icon.className.replace(/text-\w+/, 'text-warning');
+    } else {
+        icon.className = icon.className.replace(/text-\w+/, 'text-success');
+    }
+}
+// Funções para o painel admin principal
+async function toggleMaintenanceModeGlobal() {
+    const checkbox = document.getElementById('maintenanceModeGlobal');
+    const maintenanceMode = checkbox.checked;
+    
+    try {
+        const response = await fetch('/admin/api/toggle_maintenance', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                maintenance_mode: maintenanceMode
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast(result.message, 'success');
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        console.error('Erro ao alterar modo manutenção:', error);
+        showToast('Erro ao alterar modo manutenção: ' + error.message, 'danger');
+        // Reverter checkbox em caso de erro
+        checkbox.checked = !maintenanceMode;
+    }
+}
+
+// Reutilizar as mesmas funções de ações
+async function backupSystem() {
+    // mesma implementação do admin_system.html
+}
+
+async function clearSystemCache() {
+    // mesma implementação do admin_system.html  
+}
+
+async function optimizeDatabase() {
+    // mesma implementação do admin_system.html
+}
+
+async function restartSystem() {
+    // mesma implementação do admin_system.html
+}
+
+async function downloadLogs() {
+    // mesma implementação do admin_system.html
+}
+
+async function clearLogs() {
+    // mesma implementação do admin_system.html
+}
+
+
+function clearCache() {
+    if (confirm('Tem certeza que deseja limpar o cache do sistema?')) {
+        showToast('Limpando cache...', 'info');
+        // Implementar limpeza de cache
+    }
+}
+
+// Atualizar a cada 30 segundos
+setInterval(refreshStats, 30000);
+</script>
+
+<style>
+.card-custom {
+    transition: transform 0.2s;
+}
+
+.card-custom:hover {
+    transform: translateY(-2px);
+}
+
+.gauge-container {
+    position: relative;
+    text-align: center;
+}
+
+.cpu-gauge, .memory-gauge, .disk-gauge {
+    padding: 10px;
+    border-radius: 8px;
+    background: rgba(0,0,0,0.02);
+}
+</style>
+{% endblock %}

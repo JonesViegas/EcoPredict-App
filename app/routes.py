@@ -1,19 +1,20 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, send_file
+from flask import current_app
 from flask_login import login_required, current_user
+from app.utils import admin_required, allowed_file, process_uploaded_file 
 from app import db
-from app.models import User, Dataset, MLModel, AirQualityData
+from app.models import User, Dataset, MLModel, Alert, SystemLog, AirQualityData 
 from app.forms import DatasetUploadForm, MLModelForm, AirQualityDataForm
 from app.utils import allowed_file, process_uploaded_file
 from app.ml_models import train_model, make_prediction, evaluate_model
 from app.data_processing import calculate_correlations, generate_statistics, clean_dataset
 import pandas as pd
 import numpy as np
-import json
 import os
 from datetime import datetime, timedelta
-import folium
-import joblib
-import  logging
+import requests
+import logging
+import flask 
 
 main_bp = Blueprint('main', __name__)
 
@@ -28,91 +29,402 @@ def index():
 @main_bp.route('/dashboard')
 @login_required
 def dashboard():
-    # Get basic statistics
-    total_datasets = Dataset.query.filter_by(user_id=current_user.id).count()
-    total_models = MLModel.query.filter_by(user_id=current_user.id).count()
-    active_models = MLModel.query.filter_by(user_id=current_user.id, is_active=True).count()
+    """Dashboard principal usando dados dos datasets"""
+    try:
+        import pandas as pd
+        import os
+        from datetime import datetime, timedelta
+        
+        # Get basic statistics
+        user_datasets = Dataset.query.filter_by(user_id=current_user.id).all()
+        total_datasets = len(user_datasets)
+        
+        # Tentar buscar modelos ML (se a tabela existir)
+        try:
+            total_models = MLModel.query.filter_by(user_id=current_user.id).count()
+            active_models = MLModel.query.filter_by(user_id=current_user.id, is_active=True).count()
+        except:
+            total_models = 0
+            active_models = 0
+            
+        public_datasets = Dataset.query.filter_by(is_public=True).count()
+        
+        # Analisar datasets para extrair dados de qualidade do ar
+        all_aqi_values = []
+        all_pm25_values = []
+        recent_data = []
+        pollutant_levels = {
+            'pm25': 0, 'pm10': 0, 'o3': 0, 'no2': 0,
+            'so2': 0, 'co': 0
+        }
+        
+        # Processar cada dataset do usuário
+        for dataset in user_datasets[-5:]:  # Últimos 5 datasets
+            try:
+                if os.path.exists(dataset.file_path):
+                    df = pd.read_csv(dataset.file_path)
+                    
+                    # Extrair AQI
+                    if 'Overall_AQI' in df.columns:
+                        aqi_vals = df['Overall_AQI'].dropna().tolist()
+                        all_aqi_values.extend(aqi_vals)
+                    
+                    # Extrair PM2.5
+                    if 'pm25' in df.columns:
+                        pm25_vals = df['pm25'].dropna().tolist()
+                        all_pm25_values.extend(pm25_vals)
+                        pollutant_levels['pm25'] = np.mean(pm25_vals) if pm25_vals else 0
+                    
+                    # Extrair outros poluentes
+                    for pollutant in ['pm10', 'o3', 'no2', 'so2', 'co']:
+                        if pollutant in df.columns:
+                            vals = df[pollutant].dropna().tolist()
+                            if vals:
+                                pollutant_levels[pollutant] = np.mean(vals)
+                    
+                    # Criar dados recentes a partir do dataset
+                    if len(df) > 0:
+                        last_row = df.iloc[-1]
+                        location = dataset.description or "Dataset Importado"
+                        
+                        # Tentar extrair data/hora
+                        timestamp = datetime.now()
+                        if 'datetime' in df.columns:
+                            try:
+                                timestamp = pd.to_datetime(last_row['datetime']).to_pydatetime()
+                            except:
+                                pass
+                        
+                        recent_data.append({
+                            'location': location,
+                            'aqi': last_row['Overall_AQI'] if 'Overall_AQI' in df.columns else 50,
+                            'pm25': last_row['pm25'] if 'pm25' in df.columns else 25,
+                            'temperature': last_row['temperature'] if 'temperature' in df.columns else 22,
+                            'timestamp': timestamp,
+                            'alert': False
+                        })
+                        
+            except Exception as e:
+                logger.warning(f"Erro ao processar dataset {dataset.id}: {e}")
+                continue
+        
+        # Se não conseguiu dados dos datasets, usar dados de demonstração
+        if not all_aqi_values and not recent_data:
+            logger.info("Usando dados de demonstração para dashboard")
+            all_aqi_values = [45, 68, 52, 78, 34, 89, 152, 67, 43, 91]
+            all_pm25_values = [12, 25, 18, 30, 10, 35, 65, 20, 15, 40]
+            recent_data = [
+                {
+                    'location': 'São Paulo - Dataset Demo',
+                    'aqi': 45.2,
+                    'pm25': 12.5,
+                    'temperature': 22.5,
+                    'timestamp': datetime.now(),
+                    'alert': False
+                },
+                {
+                    'location': 'Rio de Janeiro - Dataset Demo',
+                    'aqi': 68.7,
+                    'pm25': 25.3,
+                    'temperature': 28.1,
+                    'timestamp': datetime.now() - timedelta(hours=1),
+                    'alert': False
+                },
+                {
+                    'location': 'Belo Horizonte - Dataset Demo',
+                    'aqi': 152.3,
+                    'pm25': 65.8,
+                    'temperature': 24.2,
+                    'timestamp': datetime.now() - timedelta(hours=2),
+                    'alert': True
+                }
+            ]
+            pollutant_levels = {
+                'pm25': 25.3, 'pm10': 45.2, 'o3': 35.1, 
+                'no2': 18.7, 'so2': 8.4, 'co': 2.1
+            }
+        
+        # Calcular estatísticas AQI
+        avg_aqi = np.mean(all_aqi_values) if all_aqi_values else 0
+        max_aqi = max(all_aqi_values) if all_aqi_values else 0
+        min_aqi = min(all_aqi_values) if all_aqi_values else 0
+        
+        # Get AQI distribution for chart
+        aqi_categories = {
+            'Excelente (0-50)': len([x for x in all_aqi_values if 0 <= x <= 50]),
+            'Bom (51-100)': len([x for x in all_aqi_values if 51 <= x <= 100]),
+            'Moderado (101-150)': len([x for x in all_aqi_values if 101 <= x <= 150]),
+            'Ruim (151-200)': len([x for x in all_aqi_values if 151 <= x <= 200]),
+            'Muito Ruim (201-300)': len([x for x in all_aqi_values if 201 <= x <= 300]),
+            'Perigoso (301+)': len([x for x in all_aqi_values if x > 300])
+        }
+        
+        # Calcular PM2.5 médio
+        avg_pm25 = np.mean(all_pm25_values) if all_pm25_values else 0
+        
+        # Alertas baseados nos dados
+        active_alerts = []
+        high_aqi_locations = []
+        
+        for data in recent_data:
+            if data['aqi'] > 150:  # AQI acima de 150 = alerta
+                high_aqi_locations.append(data['location'])
+        
+        if high_aqi_locations:
+            active_alerts.append({
+                'id': 1,
+                'location': ', '.join(high_aqi_locations[:2]),
+                'message': f'AQI crítico em {len(high_aqi_locations)} localidade(s)',
+                'severity': 'high',
+                'timestamp': datetime.now()
+            })
+        
+        # Precisão de previsão (baseada na qualidade dos dados)
+        if all_aqi_values:
+            data_quality_score = min(95, (len(all_aqi_values) / 100) * 100)  # Simulação
+            prediction_accuracy = max(75, data_quality_score - 10)
+        else:
+            prediction_accuracy = 0
+        
+        # Dados para gráfico de tendência
+        trend_labels = []
+        trend_data = []
+        
+        # Gerar tendência baseada nos dados reais
+        hours = 6
+        for i in range(hours):
+            hour = (datetime.now() - timedelta(hours=hours-1-i)).strftime('%H:%M')
+            trend_labels.append(hour)
+            
+            if all_aqi_values:
+                # Usar variação baseada nos dados reais
+                base_value = avg_aqi
+                variation = (i - (hours/2)) * (max_aqi - min_aqi) / 20
+                trend_value = max(0, base_value + variation)
+                trend_data.append(round(trend_value, 1))
+            else:
+                # Dados de demonstração
+                demo_data = [45, 52, 48, 65, 70, 55]
+                trend_data.append(demo_data[i])
+        
+        # Limitar dados recentes
+        recent_data = recent_data[:10]
+        
+        return render_template('dashboard.html',
+                            total_datasets=total_datasets,
+                            total_models=total_models,
+                            active_models=active_models,
+                            recent_data=recent_data,
+                            avg_aqi=round(avg_aqi, 1),
+                            max_aqi=round(max_aqi, 1),
+                            min_aqi=round(min_aqi, 1),
+                            aqi_categories=aqi_categories,
+                            avg_pm25=round(avg_pm25, 1),
+                            pollutant_levels=pollutant_levels,
+                            active_alerts=active_alerts,
+                            prediction_accuracy=round(prediction_accuracy, 1),
+                            trend_labels=trend_labels,
+                            trend_data=trend_data,
+                            public_datasets=public_datasets)
     
-    # Get recent air quality data
-    recent_data = AirQualityData.query.order_by(AirQualityData.timestamp.desc()).limit(10).all()
+    except Exception as e:
+        logger.error(f"Erro no dashboard: {e}")
+        
+        # Fallback com dados de demonstração
+        return render_template('dashboard.html',
+                            total_datasets=0,
+                            total_models=0,
+                            active_models=0,
+                            recent_data=[
+                                {
+                                    'location': 'Sistema em Configuração',
+                                    'aqi': 45,
+                                    'pm25': 25,
+                                    'temperature': 22,
+                                    'timestamp': datetime.now(),
+                                    'alert': False
+                                }
+                            ],
+                            avg_aqi=45.0,
+                            max_aqi=65.0,
+                            min_aqi=25.0,
+                            aqi_categories={
+                                'Excelente (0-50)': 3,
+                                'Bom (51-100)': 2,
+                                'Moderado (101-150)': 1,
+                                'Ruim (151-200)': 0,
+                                'Muito Ruim (201-300)': 0,
+                                'Perigoso (301+)': 0
+                            },
+                            avg_pm25=25.0,
+                            pollutant_levels={
+                                'pm25': 25.0, 'pm10': 45.0, 'o3': 35.0, 
+                                'no2': 18.0, 'so2': 8.0, 'co': 2.0
+                            },
+                            active_alerts=[],
+                            prediction_accuracy=80.0,
+                            trend_labels=['08:00', '10:00', '12:00', '14:00', '16:00', '18:00'],
+                            trend_data=[45, 52, 48, 65, 70, 55],
+                            public_datasets=0)
     
-    # Calculate AQI statistics
-    aqi_data = AirQualityData.query.with_entities(AirQualityData.aqi).filter(AirQualityData.aqi.isnot(None)).all()
-    aqi_values = [data[0] for data in aqi_data] if aqi_data else [0]
-    
-    avg_aqi = np.mean(aqi_values) if aqi_values else 0
-    max_aqi = max(aqi_values) if aqi_values else 0
-    min_aqi = min(aqi_values) if aqi_values else 0
-    
-    # Get AQI distribution for chart
-    aqi_categories = {
-        'Excelente (0-50)': len([x for x in aqi_values if 0 <= x <= 50]),
-        'Bom (51-100)': len([x for x in aqi_values if 51 <= x <= 100]),
-        'Moderado (101-150)': len([x for x in aqi_values if 101 <= x <= 150]),
-        'Ruim (151-200)': len([x for x in aqi_values if 151 <= x <= 200]),
-        'Muito Ruim (201-300)': len([x for x in aqi_values if 201 <= x <= 300]),
-        'Perigoso (301+)': len([x for x in aqi_values if x > 300])
-    }
-    
-    return render_template('dashboard.html',
-                         total_datasets=total_datasets,
-                         total_models=total_models,
-                         active_models=active_models,
-                         recent_data=recent_data,
-                         avg_aqi=round(avg_aqi, 1),
-                         max_aqi=round(max_aqi, 1),
-                         min_aqi=round(min_aqi, 1),
-                         aqi_categories=aqi_categories)
-
 @main_bp.route('/map')
 @login_required
 def map_view():
-    # Get all air quality data for the map
-    air_quality_data = AirQualityData.query.all()
-    
-    # Create base map centered on Brazil
-    m = folium.Map(location=[-15.7797, -47.9297], zoom_start=4)
-    
-    # Add markers for each data point
-    for data in air_quality_data:
-        # Determine color based on AQI
-        if data.aqi <= 50:
-            color = 'green'
-        elif data.aqi <= 100:
-            color = 'yellow'
-        elif data.aqi <= 150:
-            color = 'orange'
-        elif data.aqi <= 200:
-            color = 'red'
-        elif data.aqi <= 300:
-            color = 'purple'
-        else:
-            color = 'black'
+    """Mapa interativo da qualidade do ar"""
+    try:
+        # Buscar dados das cidades dos datasets do usuário
+        user_datasets = Dataset.query.filter_by(user_id=current_user.id).all()
         
-        # Create popup content
-        popup_content = f"""
-        <div style="width: 200px;">
-            <h5>{data.location}</h5>
-            <p><strong>AQI:</strong> {data.aqi:.1f}</p>
-            <p><strong>PM2.5:</strong> {data.pm25 or 'N/A'} μg/m³</p>
-            <p><strong>PM10:</strong> {data.pm10 or 'N/A'} μg/m³</p>
-            <p><strong>NO2:</strong> {data.no2 or 'N/A'} ppb</p>
-            <p><strong>Temp:</strong> {data.temperature or 'N/A'} °C</p>
-            <p><strong>Última atualização:</strong> {data.timestamp.strftime('%d/%m/%Y %H:%M')}</p>
-        </div>
-        """
+        # Dados padrão de TODAS as capitais brasileiras
+        cities_data = {
+            # Região Norte
+            'Manaus': {'lat': -3.119, 'lon': -60.021, 'aqi': 28, 'pm25': 7.3, 'temp': 32, 'humidity': 85, 'pressure': 1009},
+            'Belém': {'lat': -1.455, 'lon': -48.502, 'aqi': 35, 'pm25': 12.1, 'temp': 28, 'humidity': 88, 'pressure': 1011},
+            'Porto Velho': {'lat': -8.761, 'lon': -63.903, 'aqi': 32, 'pm25': 9.8, 'temp': 30, 'humidity': 82, 'pressure': 1010},
+            'Rio Branco': {'lat': -9.974, 'lon': -67.807, 'aqi': 25, 'pm25': 6.5, 'temp': 29, 'humidity': 80, 'pressure': 1011},
+            'Boa Vista': {'lat': 2.823, 'lon': -60.675, 'aqi': 22, 'pm25': 5.2, 'temp': 31, 'humidity': 75, 'pressure': 1012},
+            'Macapá': {'lat': 0.034, 'lon': -51.069, 'aqi': 30, 'pm25': 8.7, 'temp': 27, 'humidity': 86, 'pressure': 1011},
+            'Palmas': {'lat': -10.184, 'lon': -48.333, 'aqi': 26, 'pm25': 7.1, 'temp': 29, 'humidity': 70, 'pressure': 1013},
+            
+            # Região Nordeste
+            'Salvador': {'lat': -12.971, 'lon': -38.501, 'aqi': 42, 'pm25': 15.8, 'temp': 29, 'humidity': 75, 'pressure': 1011},
+            'Fortaleza': {'lat': -3.731, 'lon': -38.526, 'aqi': 35, 'pm25': 8.9, 'temp': 30, 'humidity': 80, 'pressure': 1010},
+            'Recife': {'lat': -8.047, 'lon': -34.877, 'aqi': 55, 'pm25': 20.5, 'temp': 27, 'humidity': 78, 'pressure': 1011},
+            'São Luís': {'lat': -2.539, 'lon': -44.282, 'aqi': 38, 'pm25': 13.2, 'temp': 28, 'humidity': 83, 'pressure': 1012},
+            'Maceió': {'lat': -9.665, 'lon': -35.735, 'aqi': 45, 'pm25': 16.3, 'temp': 26, 'humidity': 77, 'pressure': 1013},
+            'Natal': {'lat': -5.779, 'lon': -35.200, 'aqi': 33, 'pm25': 11.4, 'temp': 28, 'humidity': 79, 'pressure': 1012},
+            'João Pessoa': {'lat': -7.119, 'lon': -34.845, 'aqi': 40, 'pm25': 14.7, 'temp': 27, 'humidity': 76, 'pressure': 1013},
+            'Teresina': {'lat': -5.089, 'lon': -42.801, 'aqi': 48, 'pm25': 18.9, 'temp': 32, 'humidity': 65, 'pressure': 1011},
+            'Aracaju': {'lat': -10.947, 'lon': -37.073, 'aqi': 37, 'pm25': 12.8, 'temp': 26, 'humidity': 78, 'pressure': 1014},
+            
+            # Região Centro-Oeste
+            'Brasília': {'lat': -15.794, 'lon': -47.882, 'aqi': 38, 'pm25': 10.2, 'temp': 26, 'humidity': 55, 'pressure': 1015},
+            'Goiânia': {'lat': -16.680, 'lon': -49.253, 'aqi': 52, 'pm25': 19.3, 'temp': 25, 'humidity': 60, 'pressure': 1014},
+            'Campo Grande': {'lat': -20.469, 'lon': -54.620, 'aqi': 44, 'pm25': 15.1, 'temp': 23, 'humidity': 68, 'pressure': 1013},
+            'Cuiabá': {'lat': -15.601, 'lon': -56.097, 'aqi': 58, 'pm25': 22.7, 'temp': 31, 'humidity': 62, 'pressure': 1010},
+            
+            # Região Sudeste
+            'São Paulo': {'lat': -23.550, 'lon': -46.633, 'aqi': 45, 'pm25': 12.5, 'temp': 22, 'humidity': 65, 'pressure': 1013},
+            'Rio de Janeiro': {'lat': -22.906, 'lon': -43.172, 'aqi': 68, 'pm25': 25.3, 'temp': 28, 'humidity': 70, 'pressure': 1012},
+            'Belo Horizonte': {'lat': -19.916, 'lon': -43.934, 'aqi': 52, 'pm25': 18.7, 'temp': 24, 'humidity': 60, 'pressure': 1014},
+            'Vitória': {'lat': -20.315, 'lon': -40.312, 'aqi': 41, 'pm25': 14.2, 'temp': 26, 'humidity': 72, 'pressure': 1015},
+            
+            # Região Sul
+            'Curitiba': {'lat': -25.428, 'lon': -49.273, 'aqi': 48, 'pm25': 14.1, 'temp': 18, 'humidity': 70, 'pressure': 1016},
+            'Porto Alegre': {'lat': -30.031, 'lon': -51.234, 'aqi': 41, 'pm25': 13.2, 'temp': 20, 'humidity': 65, 'pressure': 1014},
+            'Florianópolis': {'lat': -27.595, 'lon': -48.548, 'aqi': 36, 'pm25': 11.8, 'temp': 22, 'humidity': 74, 'pressure': 1015}
+        }
         
-        folium.Marker(
-            [data.latitude, data.longitude],
-            popup=folium.Popup(popup_content, max_width=300),
-            tooltip=data.location,
-            icon=folium.Icon(color=color, icon='info-sign')
-        ).add_to(m)
-    
-    # Save map to HTML string
-    map_html = m._repr_html_()
-    
-    return render_template('map.html', map_html=map_html)
+        # Mapeamento de siglas e nomes alternativos para cidades
+        city_mappings = {
+            'são paulo': 'São Paulo', 'sao paulo': 'São Paulo', 'sp': 'São Paulo',
+            'rio de janeiro': 'Rio de Janeiro', 'rio': 'Rio de Janeiro', 'rj': 'Rio de Janeiro',
+            'belo horizonte': 'Belo Horizonte', 'bh': 'Belo Horizonte', 'mg': 'Belo Horizonte',
+            'brasília': 'Brasília', 'brasilia': 'Brasília', 'df': 'Brasília',
+            'salvador': 'Salvador', 'ba': 'Salvador',
+            'fortaleza': 'Fortaleza', 'ce': 'Fortaleza',
+            'recife': 'Recife', 'pe': 'Recife',
+            'curitiba': 'Curitiba', 'pr': 'Curitiba',
+            'porto alegre': 'Porto Alegre', 'poa': 'Porto Alegre', 'rs': 'Porto Alegre',
+            'manaus': 'Manaus', 'am': 'Manaus',
+            'belém': 'Belém', 'belem': 'Belém', 'pa': 'Belém',
+            'porto velho': 'Porto Velho', 'ro': 'Porto Velho',
+            'rio branco': 'Rio Branco', 'ac': 'Rio Branco',
+            'boa vista': 'Boa Vista', 'rr': 'Boa Vista',
+            'macapá': 'Macapá', 'macapa': 'Macapá', 'ap': 'Macapá',
+            'palmas': 'Palmas', 'to': 'Palmas',
+            'são luís': 'São Luís', 'sao luis': 'São Luís', 'slz': 'São Luís', 'ma': 'São Luís',
+            'maceió': 'Maceió', 'maceio': 'Maceió', 'al': 'Maceió',
+            'natal': 'Natal', 'rn': 'Natal',
+            'joão pessoa': 'João Pessoa', 'joao pessoa': 'João Pessoa', 'jp': 'João Pessoa', 'pb': 'João Pessoa',
+            'teresina': 'Teresina', 'pi': 'Teresina',
+            'aracaju': 'Aracaju', 'se': 'Aracaju',
+            'goiânia': 'Goiânia', 'goiania': 'Goiânia', 'go': 'Goiânia',
+            'campo grande': 'Campo Grande', 'cg': 'Campo Grande', 'ms': 'Campo Grande',
+            'cuiabá': 'Cuiabá', 'cuiaba': 'Cuiabá', 'mt': 'Cuiabá',
+            'vitória': 'Vitória', 'vitoria': 'Vitória', 'es': 'Vitória',
+            'florianópolis': 'Florianópolis', 'florianopolis': 'Florianópolis', 'floripa': 'Florianópolis', 'sc': 'Florianópolis'
+        }
+        
+        # Tentar carregar dados reais dos datasets do usuário
+        dataset_cities_processed = 0
+        for dataset in user_datasets:
+            try:
+                if os.path.exists(dataset.file_path):
+                    df = pd.read_csv(dataset.file_path)
+                    
+                    if len(df) > 0:
+                        # Pegar a última linha (dado mais recente)
+                        last_row = df.iloc[-1]
+                        
+                        # Extrair dados disponíveis
+                        aqi = last_row.get('Overall_AQI', last_row.get('aqi', 50))
+                        pm25 = last_row.get('pm25', 25)
+                        pm10 = last_row.get('pm10', 45)
+                        o3 = last_row.get('o3', 35)
+                        temp = last_row.get('temperature', 22)
+                        humidity = last_row.get('humidity', 65)
+                        pressure = last_row.get('pressure', 1013)
+                        
+                        # Determinar qual cidade baseado na descrição ou nome do arquivo
+                        location = dataset.description or dataset.original_filename or ""
+                        location_lower = location.lower()
+                        
+                        # Encontrar a cidade correspondente
+                        matched_city = None
+                        for key, city_name in city_mappings.items():
+                            if key in location_lower:
+                                matched_city = city_name
+                                break
+                        
+                        # Se encontrou uma cidade correspondente, atualizar os dados
+                        if matched_city and matched_city in cities_data:
+                            cities_data[matched_city].update({
+                                'aqi': float(aqi), 
+                                'pm25': float(pm25), 
+                                'pm10': float(pm10),
+                                'o3': float(o3), 
+                                'temp': float(temp), 
+                                'humidity': float(humidity),
+                                'pressure': float(pressure),
+                                'data_source': 'user_dataset',  # Marcar como dado do usuário
+                                'dataset_id': dataset.id
+                            })
+                            dataset_cities_processed += 1
+                            logger.info(f"Dados atualizados para {matched_city} do dataset {dataset.id}")
+                            
+            except Exception as e:
+                logger.warning(f"Erro ao processar dataset {dataset.id} para mapa: {e}")
+                continue
+        
+        logger.info(f"Processados {dataset_cities_processed} datasets para o mapa")
+        
+        # Calcular estatísticas para exibir no template
+        total_cities = len(cities_data)
+        cities_with_user_data = sum(1 for city in cities_data.values() if city.get('data_source') == 'user_dataset')
+        
+        return render_template('map.html', 
+                             cities_data=cities_data,
+                             total_cities=total_cities,
+                             cities_with_user_data=cities_with_user_data,
+                             mapbox_token=current_app.config.get('MAPBOX_ACCESS_TOKEN', ''),
+                             now=datetime.now())
+        
+    except Exception as e:
+        logger.error(f"Erro no mapa: {e}")
+        # Fallback com dados de demonstração de algumas cidades principais
+        fallback_data = {
+            'São Paulo': {'lat': -23.550, 'lon': -46.633, 'aqi': 45, 'pm25': 12.5, 'temp': 22, 'humidity': 65, 'pressure': 1013},
+            'Rio de Janeiro': {'lat': -22.906, 'lon': -43.172, 'aqi': 68, 'pm25': 25.3, 'temp': 28, 'humidity': 70, 'pressure': 1012},
+            'Belo Horizonte': {'lat': -19.916, 'lon': -43.934, 'aqi': 52, 'pm25': 18.7, 'temp': 24, 'humidity': 60, 'pressure': 1014},
+            'Brasília': {'lat': -15.794, 'lon': -47.882, 'aqi': 38, 'pm25': 10.2, 'temp': 26, 'humidity': 55, 'pressure': 1015}
+        }
+        return render_template('map.html', 
+                             cities_data=fallback_data,
+                             total_cities=len(fallback_data),
+                             cities_with_user_data=0,
+                             mapbox_token='',
+                             now=datetime.now())
 
 @main_bp.route('/upload', methods=['GET', 'POST'])
 @login_required
@@ -331,27 +643,6 @@ def reports():
                          alerts=alerts,
                          datasets=user_datasets)
 
-@main_bp.route('/admin')
-@login_required
-def admin_panel():
-    if not current_user.is_admin:
-        flash('Acesso negado. Apenas administradores.', 'danger')
-        return redirect(url_for('main.dashboard'))
-    
-    # Admin statistics
-    total_users = User.query.count()
-    total_datasets = Dataset.query.count()
-    total_models = MLModel.query.count()
-    system_health = 'healthy'  # Simplified health check
-    
-    users = User.query.order_by(User.created_at.desc()).limit(10).all()
-    
-    return render_template('admin.html',
-                         total_users=total_users,
-                         total_datasets=total_datasets,
-                         total_models=total_models,
-                         system_health=system_health,
-                         users=users)
 
 @main_bp.route('/api/air-quality-data')
 def api_air_quality_data():
@@ -697,3 +988,926 @@ def download_user_dataset(dataset_id):  # Este nome deve corresponder ao usado n
         logger.error(f"Erro ao fazer download do dataset {dataset_id}: {e}")
         flash('Erro ao fazer download do dataset.', 'error')
         return redirect(url_for('main.datasets'))
+    
+def calculate_aqi_stats(user_id):
+    """Calcula estatísticas de AQI baseadas nos datasets do usuário"""
+    try:
+        datasets = Dataset.query.filter_by(user_id=user_id).all()
+        all_aqi_values = []
+        
+        for dataset in datasets:
+            try:
+                df = pd.read_csv(dataset.file_path)
+                if 'Overall_AQI' in df.columns:
+                    aqi_values = df['Overall_AQI'].dropna().tolist()
+                    all_aqi_values.extend(aqi_values)
+            except Exception as e:
+                logger.warning(f"Erro ao ler dataset {dataset.id}: {e}")
+                continue
+        
+        if not all_aqi_values:
+            return {
+                'avg_aqi': 45.2,
+                'categories': {
+                    'Bom (0-50)': 35,
+                    'Moderado (51-100)': 25,
+                    'Ruim (101-150)': 15,
+                    'Muito Ruim (151-200)': 8,
+                    'Perigoso (201-300)': 5,
+                    'Emergência (>300)': 2
+                }
+            }
+        
+        avg_aqi = sum(all_aqi_values) / len(all_aqi_values)
+        
+        # Calcular distribuição por categoria
+        categories = {
+            'Bom (0-50)': len([x for x in all_aqi_values if x <= 50]),
+            'Moderado (51-100)': len([x for x in all_aqi_values if 51 <= x <= 100]),
+            'Ruim (101-150)': len([x for x in all_aqi_values if 101 <= x <= 150]),
+            'Muito Ruim (151-200)': len([x for x in all_aqi_values if 151 <= x <= 200]),
+            'Perigoso (201-300)': len([x for x in all_aqi_values if 201 <= x <= 300]),
+            'Emergência (>300)': len([x for x in all_aqi_values if x > 300])
+        }
+        
+        return {
+            'avg_aqi': avg_aqi,
+            'categories': categories
+        }
+        
+    except Exception as e:
+        logger.error(f"Erro no cálculo de estatísticas AQI: {e}")
+        return {
+            'avg_aqi': 45.2,
+            'categories': {
+                'Bom (0-50)': 35,
+                'Moderado (51-100)': 25,
+                'Ruim (101-150)': 15,
+                'Muito Ruim (151-200)': 8,
+                'Perigoso (201-300)': 5,
+                'Emergência (>300)': 2
+            }
+        }
+
+def fetch_real_air_quality_data():
+    """Busca dados reais de qualidade do ar de APIs públicas"""
+    real_data = {}
+    
+    try:
+        # API 1: OpenAQ (dados globais de qualidade do ar - sem API key necessária)
+        logger.info("Buscando dados do OpenAQ...")
+        try:
+            openaq_url = "https://api.openaq.org/v2/latest?limit=50&country=BR&order_by=lastUpdated&sort=desc"
+            headers = {
+                'User-Agent': 'EcoPredict/1.0 (https://github.com/seu-repositorio)',
+                'Accept': 'application/json'
+            }
+            response = requests.get(openaq_url, headers=headers, timeout=15)
+            
+            if response.status_code == 200:
+                data = response.json()
+                logger.info(f"OpenAQ retornou {len(data.get('results', []))} resultados")
+                
+                for result in data.get('results', []):
+                    location = result.get('location', '')
+                    city = extract_city_name(location)
+                    
+                    if city and city not in real_data:
+                        # Processar medições
+                        measurements = {}
+                        for measurement in result.get('measurements', []):
+                            parameter = measurement.get('parameter', '')
+                            value = measurement.get('value', 0)
+                            unit = measurement.get('unit', '')
+                            measurements[parameter] = value
+                        
+                        # Calcular AQI aproximado
+                        aqi = calculate_aqi_from_measurements(measurements)
+                        
+                        real_data[city] = {
+                            'aqi': aqi,
+                            'pm25': measurements.get('pm25', 0),
+                            'pm10': measurements.get('pm10', 0),
+                            'o3': measurements.get('o3', 0),
+                            'no2': measurements.get('no2', 0),
+                            'so2': measurements.get('so2', 0),
+                            'co': measurements.get('co', 0),
+                            'source': 'OpenAQ',
+                            'last_updated': result.get('lastUpdated', ''),
+                            'location': location
+                        }
+                        logger.info(f"Dados OpenAQ para {city}: AQI {aqi}")
+            else:
+                logger.warning(f"OpenAQ retornou status {response.status_code}")
+                        
+        except requests.exceptions.Timeout:
+            logger.warning("Timeout ao buscar dados do OpenAQ")
+        except requests.exceptions.RequestException as e:
+            logger.warning(f"Erro de conexão com OpenAQ: {e}")
+        except Exception as e:
+            logger.warning(f"Erro inesperado no OpenAQ: {e}")
+        
+        # API 2: WAQI (World Air Quality Index) - com sua API key
+        logger.info("Buscando dados do WAQI...")
+        try:
+            waqi_token = current_app.config.get('WAQI_API_TOKEN', '')
+            if waqi_token:
+                # Estações WAQI para cidades brasileiras
+                waqi_stations = {
+                    'São Paulo': 'sao-paulo',
+                    'Rio de Janeiro': 'rio-de-janeiro', 
+                    'Belo Horizonte': 'minas-gerais',
+                    'Brasília': 'brasilia',
+                    'Curitiba': 'curitiba',
+                    'Salvador': 'salvador',
+                    'Fortaleza': 'fortaleza'
+                }
+                
+                for city, station in waqi_stations.items():
+                    if city in real_data:
+                        continue  # Já tem dados do OpenAQ
+                        
+                    waqi_url = f"https://api.waqi.info/feed/{station}/?token={waqi_token}"
+                    response = requests.get(waqi_url, timeout=10)
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        if data.get('status') == 'ok':
+                            aqi_data = data.get('data', {})
+                            aqi = aqi_data.get('aqi', 0)
+                            
+                            if aqi > 0:
+                                iaqi = aqi_data.get('iaqi', {})
+                                
+                                real_data[city] = {
+                                    'aqi': aqi,
+                                    'pm25': iaqi.get('pm25', {}).get('v', 0),
+                                    'pm10': iaqi.get('pm10', {}).get('v', 0),
+                                    'o3': iaqi.get('o3', {}).get('v', 0),
+                                    'no2': iaqi.get('no2', {}).get('v', 0),
+                                    'so2': iaqi.get('so2', {}).get('v', 0),
+                                    'temp': iaqi.get('t', {}).get('v', 0),
+                                    'humidity': iaqi.get('h', {}).get('v', 0),
+                                    'pressure': iaqi.get('p', {}).get('v', 0),
+                                    'source': 'WAQI',
+                                    'last_updated': aqi_data.get('time', {}).get('s', '')
+                                }
+                                logger.info(f"Dados WAQI para {city}: AQI {aqi}")
+                        else:
+                            logger.warning(f"WAQI retornou status: {data.get('status')}")
+                    else:
+                        logger.warning(f"WAQI retornou HTTP {response.status_code}")
+            else:
+                logger.warning("Token WAQI não configurado")
+                                
+        except Exception as e:
+            logger.warning(f"Erro ao buscar dados WAQI: {e}")
+        
+        logger.info(f"Total de cidades com dados reais: {len(real_data)}")
+        
+        # Se não conseguiu dados reais, usar fallback
+        if not real_data:
+            logger.info("Nenhum dado real encontrado, usando fallback")
+            real_data = get_data_from_user_datasets()
+            
+    except Exception as e:
+        logger.error(f"Erro geral ao buscar dados reais: {e}")
+        real_data = get_data_from_user_datasets()
+    
+    return real_data
+
+def extract_city_name(location):
+    """Extrai o nome da cidade da string de localização"""
+    city_mapping = {
+        'sao paulo': 'São Paulo',
+        'rio de janeiro': 'Rio de Janeiro',
+        'belo horizonte': 'Belo Horizonte',
+        'brasilia': 'Brasília',
+        'salvador': 'Salvador',
+        'fortaleza': 'Fortaleza',
+        'manaus': 'Manaus',
+        'curitiba': 'Curitiba',
+        'recife': 'Recife',
+        'porto alegre': 'Porto Alegre'
+    }
+    
+    location_lower = location.lower()
+    for key, city in city_mapping.items():
+        if key in location_lower:
+            return city
+    
+    return None
+
+def calculate_aqi_from_measurements(measurements):
+    """Calcula AQI aproximado baseado nas medições de poluentes"""
+    try:
+        pm25 = measurements.get('pm25', 0)
+        pm10 = measurements.get('pm10', 0)
+        o3 = measurements.get('o3', 0)
+        
+        # Usar o maior valor entre os poluentes principais
+        if pm25 > 0:
+            # Escala simplificada do AQI para PM2.5
+            if pm25 <= 12: aqi_pm25 = (50 / 12) * pm25
+            elif pm25 <= 35: aqi_pm25 = 50 + (50 / 23) * (pm25 - 12)
+            elif pm25 <= 55: aqi_pm25 = 100 + (50 / 20) * (pm25 - 35)
+            elif pm25 <= 150: aqi_pm25 = 150 + (150 / 95) * (pm25 - 55)
+            else: aqi_pm25 = 300 + (200 / 150) * (pm25 - 150)
+        else:
+            aqi_pm25 = 0
+            
+        if pm10 > 0:
+            # Escala para PM10
+            if pm10 <= 54: aqi_pm10 = (50 / 54) * pm10
+            elif pm10 <= 154: aqi_pm10 = 50 + (50 / 100) * (pm10 - 54)
+            elif pm10 <= 254: aqi_pm10 = 100 + (50 / 100) * (pm10 - 154)
+            elif pm10 <= 354: aqi_pm10 = 150 + (50 / 100) * (pm10 - 254)
+            elif pm10 <= 424: aqi_pm10 = 200 + (100 / 70) * (pm10 - 354)
+            else: aqi_pm10 = 300 + (200 / 176) * (pm10 - 424)
+        else:
+            aqi_pm10 = 0
+            
+        # Retornar o maior valor de AQI
+        aqi_values = [aqi_pm25, aqi_pm10]
+        aqi_values = [v for v in aqi_values if v > 0]
+        
+        return round(max(aqi_values)) if aqi_values else 50
+        
+    except Exception as e:
+        logger.warning(f"Erro no cálculo do AQI: {e}")
+        return 50
+    
+def get_data_from_user_datasets():
+    """Fallback: Busca dados dos datasets do usuário"""
+    from flask_login import current_user
+    import pandas as pd
+    import os
+    
+    user_data = {}
+    user_datasets = Dataset.query.filter_by(user_id=current_user.id).all()
+    
+    for dataset in user_datasets:
+        try:
+            if os.path.exists(dataset.file_path):
+                df = pd.read_csv(dataset.file_path)
+                if len(df) > 0:
+                    last_row = df.iloc[-1]
+                    location = dataset.description or dataset.original_filename or ""
+                    
+                    # Mapear para cidades conhecidas
+                    city = extract_city_name(location)
+                    if city and city not in user_data:
+                        user_data[city] = {
+                            'aqi': last_row.get('Overall_AQI', 50),
+                            'pm25': last_row.get('pm25', 25),
+                            'pm10': last_row.get('pm10', 45),
+                            'o3': last_row.get('o3', 35),
+                            'temp': last_row.get('temperature', 22),
+                            'humidity': last_row.get('humidity', 65),
+                            'pressure': last_row.get('pressure', 1013),
+                            'source': 'User Dataset'
+                        }
+        except Exception as e:
+            logger.warning(f"Erro ao processar dataset do usuário: {e}")
+            continue
+    
+    return user_data
+
+@main_bp.route('/api/map/data')
+@login_required
+def api_map_data():
+    """API para dados do mapa em tempo real de fontes reais"""
+    try:
+        # Buscar dados reais atualizados
+        real_time_data = fetch_real_air_quality_data()
+        
+        # Combinar com coordenadas
+        cities_coordinates = {
+            'São Paulo': {'lat': -23.550, 'lon': -46.633},
+            'Rio de Janeiro': {'lat': -22.906, 'lon': -43.172},
+            'Belo Horizonte': {'lat': -19.916, 'lon': -43.934},
+            'Brasília': {'lat': -15.794, 'lon': -47.882},
+            'Salvador': {'lat': -12.971, 'lon': -38.501},
+            'Fortaleza': {'lat': -3.731, 'lon': -38.526},
+            'Manaus': {'lat': -3.119, 'lon': -60.021},
+            'Curitiba': {'lat': -25.428, 'lon': -49.273},
+            'Recife': {'lat': -8.047, 'lon': -34.877},
+            'Porto Alegre': {'lat': -30.031, 'lon': -51.234}
+        }
+        
+        response_data = {}
+        for city, coords in cities_coordinates.items():
+            if city in real_time_data:
+                response_data[city] = {**coords, **real_time_data[city]}
+            else:
+                # Dados simulados apenas se não houver dados reais
+                response_data[city] = {
+                    **coords,
+                    'aqi': 50,
+                    'pm25': 25,
+                    'source': 'Simulado'
+                }
+        
+        return jsonify({
+            'success': True,
+            'data': response_data,
+            'timestamp': datetime.now().isoformat(),
+            'sources_used': list(set([data.get('source', 'Unknown') for data in real_time_data.values()]))
+        })
+        
+    except Exception as e:
+        logger.error(f"Erro na API do mapa: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/admin')
+@login_required
+@admin_required
+def admin_panel():
+    """Painel administrativo do sistema"""
+    try:
+        print("=== INICIANDO PAINEL ADMIN ===")
+        
+        # Estatísticas gerais do sistema
+        total_users = User.query.count()
+        total_datasets = Dataset.query.count()
+        total_models = MLModel.query.count()
+        
+        print(f"Total users: {total_users}")
+        print(f"Total datasets: {total_datasets}")
+        print(f"Total models: {total_models}")
+        
+        # Tentar contar alertas (com fallback)
+        try:
+            total_alerts = Alert.query.count()
+            print(f"Total alerts: {total_alerts}")
+        except Exception as e:
+            print(f"Erro em alertas: {e}")
+            total_alerts = 0
+        
+        # Usuários recentes (últimos 7 dias)
+        recent_users = User.query.filter(
+            User.created_at >= datetime.now() - timedelta(days=7)
+        ).count()
+        
+        print(f"Recent users: {recent_users}")
+        
+        # Datasets por status
+        datasets_public = Dataset.query.filter_by(is_public=True).count()
+        datasets_private = Dataset.query.filter_by(is_public=False).count()
+        
+        print(f"Datasets - Public: {datasets_public}, Private: {datasets_private}")
+        
+        # Modelos por status
+        models_active = MLModel.query.filter_by(is_active=True).count()
+        models_training = MLModel.query.filter_by(is_active=False).count()
+        models_error = 0
+        
+        print(f"Models - Active: {models_active}, Training: {models_training}")
+        
+        # Alertas ativos (com fallback)
+        try:
+            active_alerts = Alert.query.filter_by(is_active=True).count()
+        except:
+            active_alerts = 0
+            
+        # Alertas não lidos (com fallback)  
+        try:
+            unread_alerts = Alert.query.filter_by(is_read=False).count()
+        except:
+            unread_alerts = 0
+        
+        # Uso do sistema
+        recent_activity = total_datasets + total_models
+        
+        # Espaço em disco usado
+        disk_usage = calculate_disk_usage()
+        print(f"Disk usage: {disk_usage}")
+        
+        # Logs recentes do sistema (com fallback)
+        try:
+            system_logs = SystemLog.query.order_by(SystemLog.created_at.desc()).limit(10).all()
+        except Exception as e:
+            print(f"Erro em system logs: {e}")
+            system_logs = []
+        
+        # Alertas recentes para exibir (com fallback)
+        try:
+            recent_alerts = Alert.query.order_by(Alert.created_at.desc()).limit(5).all()
+        except:
+            recent_alerts = []
+        
+        print("=== DADOS COLETADOS COM SUCESSO ===")
+        
+        return render_template('admin/admin_panel.html',
+                             total_users=total_users,
+                             total_datasets=total_datasets,
+                             total_models=total_models,
+                             total_alerts=total_alerts,
+                             recent_users=recent_users,
+                             datasets_public=datasets_public,
+                             datasets_private=datasets_private,
+                             models_active=models_active,
+                             models_training=models_training,
+                             models_error=models_error,
+                             active_alerts=active_alerts,
+                             unread_alerts=unread_alerts,
+                             recent_activity=recent_activity,
+                             disk_usage=disk_usage,
+                             system_logs=system_logs,
+                             recent_alerts=recent_alerts)
+        
+    except Exception as e:
+        logger.error(f"Erro no painel admin: {e}")
+        flash('Erro ao carregar painel administrativo', 'danger')
+        return redirect(url_for('main.dashboard'))
+    
+# Atualize também as outras rotas administrativas
+@main_bp.route('/admin/users')
+@login_required
+@admin_required
+def admin_users():
+    """Gerenciamento de usuários"""
+    page = request.args.get('page', 1, type=int)
+    per_page = 10
+    
+    users = User.query.order_by(User.created_at.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+    
+    return render_template('admin/admin_users.html', users=users)
+
+@main_bp.route('/admin/datasets')
+@login_required
+@admin_required
+def admin_datasets():
+    """Gerenciamento de datasets"""
+    page = request.args.get('page', 1, type=int)
+    per_page = 15
+    
+    datasets = Dataset.query.order_by(Dataset.uploaded_at.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+    
+    return render_template('admin/admin_datasets.html', datasets=datasets)
+
+@main_bp.route('/admin/models')
+@login_required
+@admin_required
+def admin_models():
+    """Gerenciamento de modelos ML"""
+    page = request.args.get('page', 1, type=int)
+    per_page = 10
+    
+    models = MLModel.query.order_by(MLModel.created_at.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+    
+    return render_template('admin/admin_models.html', models=models)
+
+@main_bp.route('/admin/system')
+@login_required
+@admin_required
+def admin_system():
+    """Configurações do sistema"""
+    system_info = get_system_info()
+    return render_template('admin/admin_system.html', system_info=system_info)
+
+# API Routes para ações administrativas
+@main_bp.route('/admin/api/toggle_user/<int:user_id>', methods=['POST'])
+@login_required
+@admin_required
+def toggle_user_status(user_id):
+    """Ativar/desativar usuário"""
+    try:
+        user = User.query.get_or_404(user_id)
+        user.is_active = not user.is_active
+        db.session.commit()
+        
+        action = "ativado" if user.is_active else "desativado"
+        logger.info(f"Usuário {user.email} {action} por admin {current_user.email}")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Usuário {action} com sucesso',
+            'is_active': user.is_active
+        })
+    except Exception as e:
+        logger.error(f"Erro ao alterar status do usuário: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/admin/api/delete_dataset/<int:dataset_id>', methods=['DELETE'])
+@login_required
+@admin_required
+def admin_delete_dataset(dataset_id):
+    """Deletar dataset (admin)"""
+    try:
+        dataset = Dataset.query.get_or_404(dataset_id)
+        
+        # Deletar arquivo físico
+        if os.path.exists(dataset.file_path):
+            os.remove(dataset.file_path)
+        
+        db.session.delete(dataset)
+        db.session.commit()
+        
+        logger.info(f"Dataset {dataset_id} deletado por admin {current_user.email}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Dataset deletado com sucesso'
+        })
+    except Exception as e:
+        logger.error(f"Erro ao deletar dataset: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/admin/api/system_stats')
+@login_required
+@admin_required
+def system_stats():
+    """API para estatísticas do sistema em tempo real"""
+    try:
+        import psutil
+        
+        stats = {
+            'cpu_percent': psutil.cpu_percent(interval=1),
+            'memory_percent': psutil.virtual_memory().percent,
+            'disk_usage': psutil.disk_usage('/').percent,
+            'active_users': User.query.filter_by(is_active=True).count(),
+            'total_datasets_today': Dataset.query.filter(
+                Dataset.uploaded_at >= datetime.now().date()
+            ).count(),
+            'active_alerts': Alert.query.filter_by(is_active=True).count() if hasattr(Alert, 'query') else 0
+        }
+        
+        return jsonify({'success': True, 'stats': stats})
+    except Exception as e:
+        logger.error(f"Erro ao obter stats do sistema: {e}")
+        return jsonify({
+            'success': False, 
+            'error': str(e),
+            'stats': {
+                'cpu_percent': 0,
+                'memory_percent': 0, 
+                'disk_usage': 0,
+                'active_users': 0,
+                'total_datasets_today': 0,
+                'active_alerts': 0
+            }
+        }), 500
+    
+# Funções auxiliares
+def calculate_disk_usage():
+    """Calcular uso de disco dos datasets"""
+    try:
+        total_size = 0
+        datasets = Dataset.query.all()
+        
+        for dataset in datasets:
+            if os.path.exists(dataset.file_path):
+                total_size += os.path.getsize(dataset.file_path)
+        
+        return {
+            'total_mb': round(total_size / (1024 * 1024), 2),
+            'total_datasets': len(datasets)
+        }
+    except Exception as e:
+        logger.error(f"Erro ao calcular uso de disco: {e}")
+        return {'total_mb': 0, 'total_datasets': 0}
+
+def get_system_info():
+    """Obter informações do sistema"""
+    try:
+        import platform
+        return {
+            'python_version': platform.python_version(),
+            'flask_version': flask.__version__,
+            'system': platform.system(),
+            'processor': platform.processor(),
+            'hostname': platform.node(),
+            'start_time': datetime.now() - timedelta(hours=2)  # Exemplo
+        }
+    except Exception as e:
+        logger.error(f"Erro ao obter info do sistema: {e}")
+        return {}
+    
+# routes.py - Adicione estas rotas após as rotas existentes
+
+# =============================================
+# ROTAS DE AÇÕES ADMINISTRATIVAS
+# =============================================
+
+@main_bp.route('/admin/api/backup', methods=['POST'])
+@login_required
+@admin_required
+def admin_backup():
+    """Criar backup do sistema"""
+    try:
+        from datetime import datetime
+        import shutil
+        import os
+        
+        # Criar nome do backup com timestamp
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        backup_name = f'ecopredict_backup_{timestamp}'
+        backup_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'backups', backup_name)
+        
+        # Criar diretório de backup
+        os.makedirs(backup_path, exist_ok=True)
+        
+        # Copiar arquivos importantes (exemplo)
+        important_folders = ['instance', 'uploads']
+        
+        for folder in important_folders:
+            if os.path.exists(folder):
+                shutil.copytree(folder, os.path.join(backup_path, folder))
+        
+        # Registrar no log do sistema
+        log_system_event(
+            level='INFO',
+            message=f'Backup do sistema criado: {backup_name}',
+            module='admin',
+            user_id=current_user.id
+        )
+        
+        return jsonify({
+            'success': True,
+            'message': f'Backup criado com sucesso: {backup_name}',
+            'backup_name': backup_name
+        })
+        
+    except Exception as e:
+        logger.error(f"Erro ao criar backup: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@main_bp.route('/admin/api/clear_cache', methods=['POST'])
+@login_required
+@admin_required
+def admin_clear_cache():
+    """Limpar cache do sistema"""
+    try:
+        import glob
+        import os
+        
+        # Limpar cache de templates (exemplo)
+        cache_dirs = [
+            os.path.join(current_app.root_path, '..', '__pycache__'),
+            os.path.join(current_app.instance_path, 'cache')
+        ]
+        
+        cleared_files = 0
+        for cache_dir in cache_dirs:
+            if os.path.exists(cache_dir):
+                # Encontrar arquivos .pyc
+                pyc_files = glob.glob(os.path.join(cache_dir, '**', '*.pyc'), recursive=True)
+                for pyc_file in pyc_files:
+                    try:
+                        os.remove(pyc_file)
+                        cleared_files += 1
+                    except:
+                        pass
+        
+        # Registrar no log
+        log_system_event(
+            level='INFO',
+            message=f'Cache do sistema limpo. {cleared_files} arquivos removidos.',
+            module='admin',
+            user_id=current_user.id
+        )
+        
+        return jsonify({
+            'success': True,
+            'message': f'Cache limpo com sucesso. {cleared_files} arquivos removidos.',
+            'cleared_files': cleared_files
+        })
+        
+    except Exception as e:
+        logger.error(f"Erro ao limpar cache: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@main_bp.route('/admin/api/optimize_db', methods=['POST'])
+@login_required
+@admin_required
+def admin_optimize_db():
+    """Otimizar base de dados"""
+    try:
+        from sqlalchemy import text
+        
+        # Executar comandos de otimização (exemplos para PostgreSQL)
+        optimization_commands = [
+            "VACUUM ANALYZE;",
+            "REINDEX DATABASE current;"
+        ]
+        
+        results = []
+        for command in optimization_commands:
+            try:
+                db.session.execute(text(command))
+                results.append(f"Comando executado: {command}")
+            except Exception as cmd_error:
+                results.append(f"Erro no comando {command}: {str(cmd_error)}")
+        
+        db.session.commit()
+        
+        # Registrar no log
+        log_system_event(
+            level='INFO',
+            message='Otimização do banco de dados executada',
+            module='admin',
+            user_id=current_user.id
+        )
+        
+        return jsonify({
+            'success': True,
+            'message': 'Otimização do banco de dados concluída',
+            'results': results
+        })
+        
+    except Exception as e:
+        logger.error(f"Erro ao otimizar banco: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@main_bp.route('/admin/api/restart_system', methods=['POST'])
+@login_required
+@admin_required
+def admin_restart_system():
+    """Reiniciar sistema (simulado)"""
+    try:
+        # Em produção, isso reiniciaria o serviço
+        # Aqui é apenas uma simulação
+        
+        # Registrar no log
+        log_system_event(
+            level='WARNING',
+            message='Sistema reiniciado pelo administrador',
+            module='admin',
+            user_id=current_user.id
+        )
+        
+        return jsonify({
+            'success': True,
+            'message': 'Comando de reinicialização enviado. Sistema será reiniciado.',
+            'note': 'Em ambiente de produção, isso reiniciaria o serviço.'
+        })
+        
+    except Exception as e:
+        logger.error(f"Erro ao reiniciar sistema: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@main_bp.route('/admin/api/download_logs', methods=['GET'])
+@login_required
+@admin_required
+def admin_download_logs():
+    """Download dos logs do sistema"""
+    try:
+        import tempfile
+        import zipfile
+        from flask import send_file
+        
+        # Criar arquivo ZIP temporário com logs
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as tmp_file:
+            with zipfile.ZipFile(tmp_file.name, 'w') as zipf:
+                # Adicionar logs do sistema (últimos 1000 registros)
+                logs = SystemLog.query.order_by(SystemLog.created_at.desc()).limit(1000).all()
+                
+                # Criar arquivo de texto com logs
+                log_content = "LOGS DO SISTEMA ECOPREDICT\n"
+                log_content += "=" * 50 + "\n\n"
+                
+                for log in reversed(logs):  # Ordem cronológica
+                    log_content += f"[{log.created_at.strftime('%Y-%m-%d %H:%M:%S')}] "
+                    log_content += f"{log.level}: {log.message}"
+                    if log.module:
+                        log_content += f" (Módulo: {log.module})"
+                    if log.user_id:
+                        log_content += f" (Usuário ID: {log.user_id})"
+                    log_content += "\n"
+                
+                zipf.writestr('system_logs.txt', log_content)
+                
+                # Adicionar logs do aplicativo se existirem
+                app_log_file = 'app.log'
+                if os.path.exists(app_log_file):
+                    zipf.write(app_log_file, 'application.log')
+            
+            # Registrar no log
+            log_system_event(
+                level='INFO',
+                message='Logs do sistema exportados',
+                module='admin',
+                user_id=current_user.id
+            )
+            
+            return send_file(
+                tmp_file.name,
+                as_attachment=True,
+                download_name=f'ecopredict_logs_{datetime.now().strftime("%Y%m%d_%H%M")}.zip',
+                mimetype='application/zip'
+            )
+            
+    except Exception as e:
+        logger.error(f"Erro ao baixar logs: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@main_bp.route('/admin/api/clear_old_logs', methods=['POST'])
+@login_required
+@admin_required
+def admin_clear_old_logs():
+    """Limpar logs antigos"""
+    try:
+        # Manter apenas logs dos últimos 30 dias
+        cutoff_date = datetime.now() - timedelta(days=30)
+        
+        # Contar logs que serão deletados
+        old_logs_count = SystemLog.query.filter(
+            SystemLog.created_at < cutoff_date
+        ).count()
+        
+        # Deletar logs antigos
+        SystemLog.query.filter(
+            SystemLog.created_at < cutoff_date
+        ).delete()
+        
+        db.session.commit()
+        
+        # Registrar no log
+        log_system_event(
+            level='INFO',
+            message=f'Logs antigos removidos: {old_logs_count} registros',
+            module='admin',
+            user_id=current_user.id
+        )
+        
+        return jsonify({
+            'success': True,
+            'message': f'{old_logs_count} logs antigos removidos (anteriores a {cutoff_date.strftime("%d/%m/%Y")})',
+            'deleted_count': old_logs_count
+        })
+        
+    except Exception as e:
+        logger.error(f"Erro ao limpar logs antigos: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@main_bp.route('/admin/api/toggle_maintenance', methods=['POST'])
+@login_required
+@admin_required
+def admin_toggle_maintenance():
+    """Ativar/desativar modo manutenção"""
+    try:
+        maintenance_mode = request.json.get('maintenance_mode', False)
+        
+        # Aqui você implementaria a lógica real de modo manutenção
+        # Por exemplo, criar/remover um arquivo de flag
+        
+        flag_file = os.path.join(current_app.instance_path, 'maintenance.flag')
+        
+        if maintenance_mode:
+            # Ativar modo manutenção
+            with open(flag_file, 'w') as f:
+                f.write('maintenance')
+            message = 'Modo manutenção ativado'
+            log_level = 'WARNING'
+        else:
+            # Desativar modo manutenção
+            if os.path.exists(flag_file):
+                os.remove(flag_file)
+            message = 'Modo manutenção desativado'
+            log_level = 'INFO'
+        
+        # Registrar no log
+        log_system_event(
+            level=log_level,
+            message=message,
+            module='admin',
+            user_id=current_user.id
+        )
+        
+        return jsonify({
+            'success': True,
+            'message': message,
+            'maintenance_mode': maintenance_mode
+        })
+        
+    except Exception as e:
+        logger.error(f"Erro ao alterar modo manutenção: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500

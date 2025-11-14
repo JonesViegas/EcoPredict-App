@@ -1,0 +1,611 @@
+{% extends "base.html" %}
+{% block title %}Configurações do Sistema - EcoPredict{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h3 mb-0">
+                <i class="fas fa-server me-2"></i>
+                Configurações do Sistema
+            </h1>
+            <p class="text-muted">Configurações e informações do sistema EcoPredict</p>
+        </div>
+        <div class="col-auto">
+            <div class="btn-group">
+                <a href="{{ url_for('main.admin_panel') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>Voltar
+                </a>
+                <button class="btn btn-outline-primary" onclick="saveSettings()">
+                    <i class="fas fa-save me-1"></i>Salvar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Informações do Sistema -->
+        <div class="col-xl-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Informações do Sistema
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <tr>
+                                <td><strong>Versão Python:</strong></td>
+                                <td>{{ system_info.python_version }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Versão Flask:</strong></td>
+                                <td>{{ system_info.flask_version }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Sistema Operacional:</strong></td>
+                                <td>{{ system_info.system }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Processador:</strong></td>
+                                <td>{{ system_info.processor }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Hostname:</strong></td>
+                                <td>{{ system_info.hostname }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Tempo de Atividade:</strong></td>
+                                <td id="uptime">Calculando...</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Configurações Gerais -->
+        <div class="col-xl-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-cog me-2"></i>
+                        Configurações Gerais
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form id="systemSettings">
+                        <div class="mb-3">
+                            <label class="form-label">Nome do Sistema</label>
+                            <input type="text" class="form-control" value="EcoPredict" name="system_name">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Email do Administrador</label>
+                            <input type="email" class="form-control" value="admin@ecopredict.com" name="admin_email">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Limite de Upload (MB)</label>
+                            <input type="number" class="form-control" value="100" name="upload_limit">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Tempo de Sessão (minutos)</label>
+                            <input type="number" class="form-control" value="120" name="session_timeout">
+                        </div>
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="maintenanceMode" name="maintenance_mode">
+                            <label class="form-check-label" for="maintenanceMode">
+                                Modo Manutenção
+                            </label>
+                        </div>
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="userRegistration" name="user_registration" checked>
+                            <label class="form-check-label" for="userRegistration">
+                                Permitir Registro de Usuários
+                            </label>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Configurações de API -->
+        <div class="col-xl-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-plug me-2"></i>
+                        Configurações de API
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Token AQICN</label>
+                        <div class="input-group">
+                            <input type="password" class="form-control" value="8f482fcd390f25d9c8f7bd230f20d485b1dfeb9a" name="aqicn_token">
+                            <button class="btn btn-outline-secondary" type="button" onclick="toggleTokenVisibility(this)">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                        <small class="form-text text-muted">Token para API de qualidade do ar</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Mapbox Access Token</label>
+                        <input type="password" class="form-control" value="" name="mapbox_token" placeholder="Insira o token Mapbox">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Intervalo de Atualização (minutos)</label>
+                        <input type="number" class="form-control" value="5" name="update_interval">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Manutenção do Sistema -->
+        <div class="col-xl-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-tools me-2"></i>
+                        Manutenção do Sistema
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-warning" onclick="clearSystemCache()">
+                            <i class="fas fa-broom me-2"></i>Limpar Cache do Sistema
+                        </button>
+                        <button class="btn btn-outline-info" onclick="optimizeDatabase()">
+                            <i class="fas fa-database me-2"></i>Otimizar Base de Dados
+                        </button>
+                        <button class="btn btn-outline-success" onclick="backupSystem()">
+                            <i class="fas fa-download me-2"></i>Criar Backup
+                        </button>
+                        <button class="btn btn-outline-danger" onclick="restartSystem()">
+                            <i class="fas fa-redo me-2"></i>Reiniciar Sistema
+                        </button>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <h6>Logs do Sistema</h6>
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-outline-secondary btn-sm" onclick="downloadLogs()">
+                                <i class="fas fa-download me-1"></i>Baixar Logs
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="clearLogs()">
+                                <i class="fas fa-trash me-1"></i>Limpar Logs Antigos
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Monitoramento em Tempo Real -->
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-line me-2"></i>
+                        Monitoramento em Tempo Real
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center" id="systemMetrics">
+                        <div class="col-md-2 col-6 mb-3">
+                            <div class="cpu-monitor">
+                                <i class="fas fa-microchip fa-2x text-primary mb-2"></i>
+                                <h4 class="mb-0">0%</h4>
+                                <small class="text-muted">CPU</small>
+                                <div class="progress mt-1" style="height: 4px;">
+                                    <div class="progress-bar bg-primary" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-2 col-6 mb-3">
+                            <div class="memory-monitor">
+                                <i class="fas fa-memory fa-2x text-info mb-2"></i>
+                                <h4 class="mb-0">0%</h4>
+                                <small class="text-muted">Memória</small>
+                                <div class="progress mt-1" style="height: 4px;">
+                                    <div class="progress-bar bg-info" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-2 col-6 mb-3">
+                            <div class="disk-monitor">
+                                <i class="fas fa-hdd fa-2x text-warning mb-2"></i>
+                                <h4 class="mb-0">0%</h4>
+                                <small class="text-muted">Disco</small>
+                                <div class="progress mt-1" style="height: 4px;">
+                                    <div class="progress-bar bg-warning" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-2 col-6 mb-3">
+                            <div class="users-monitor">
+                                <i class="fas fa-users fa-2x text-success mb-2"></i>
+                                <h4 class="mb-0">0</h4>
+                                <small class="text-muted">Usuários Online</small>
+                            </div>
+                        </div>
+                        <div class="col-md-2 col-6 mb-3">
+                            <div class="requests-monitor">
+                                <i class="fas fa-exchange-alt fa-2x text-secondary mb-2"></i>
+                                <h4 class="mb-0">0/seg</h4>
+                                <small class="text-muted">Requisições</small>
+                            </div>
+                        </div>
+                        <div class="col-md-2 col-6 mb-3">
+                            <div class="alerts-monitor">
+                                <i class="fas fa-bell fa-2x text-danger mb-2"></i>
+                                <h4 class="mb-0">0</h4>
+                                <small class="text-muted">Alertas</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Atualizar métricas do sistema
+async function updateSystemMetrics() {
+    try {
+        const response = await fetch('/admin/api/system_stats');
+        const result = await response.json();
+        
+        if (result.success) {
+            const stats = result.stats;
+            
+            // Atualizar métricas
+            updateMetric('.cpu-monitor', stats.cpu_percent);
+            updateMetric('.memory-monitor', stats.memory_percent);
+            updateMetric('.disk-monitor', stats.disk_usage);
+            document.querySelector('.users-monitor h4').textContent = stats.active_users || 0;
+            document.querySelector('.alerts-monitor h4').textContent = stats.active_alerts || 0;
+        }
+    } catch (error) {
+        console.error('Erro ao atualizar métricas:', error);
+    }
+}
+
+function updateMetric(selector, value) {
+    const element = document.querySelector(selector);
+    element.querySelector('h4').textContent = value + '%';
+    
+    const progressBar = element.querySelector('.progress-bar');
+    progressBar.style.width = value + '%';
+    
+    // Atualizar cor baseada no valor
+    if (value > 80) {
+        progressBar.className = 'progress-bar bg-danger';
+    } else if (value > 60) {
+        progressBar.className = 'progress-bar bg-warning';
+    }
+}
+
+// Calcular tempo de atividade
+function updateUptime() {
+    const startTime = new Date('{{ system_info.start_time.isoformat() if system_info.start_time else "" }}');
+    const now = new Date();
+    const diff = now - startTime;
+    
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    
+    document.getElementById('uptime').textContent = `${days}d ${hours}h ${minutes}m`;
+}
+
+// Alternar visibilidade do token
+function toggleTokenVisibility(button) {
+    const input = button.parentElement.querySelector('input');
+    const icon = button.querySelector('i');
+    
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'fas fa-eye-slash';
+    } else {
+        input.type = 'password';
+        icon.className = 'fas fa-eye';
+    }
+}
+
+// Ações de manutenção
+async function backupSystem() {
+    try {
+        showToast('Criando backup do sistema...', 'info');
+        
+        const response = await fetch('/admin/api/backup', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast(result.message, 'success');
+            // Mostrar detalhes em um modal
+            showBackupDetails(result);
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        console.error('Erro ao criar backup:', error);
+        showToast('Erro ao criar backup: ' + error.message, 'danger');
+    }
+}
+
+async function clearSystemCache() {
+    if (!confirm('Tem certeza que deseja limpar o cache do sistema?')) {
+        return;
+    }
+    
+    try {
+        showToast('Limpando cache do sistema...', 'info');
+        
+        const response = await fetch('/admin/api/clear_cache', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast(result.message, 'success');
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        console.error('Erro ao limpar cache:', error);
+        showToast('Erro ao limpar cache: ' + error.message, 'danger');
+    }
+}
+
+async function optimizeDatabase() {
+    if (!confirm('Otimizar base de dados? Esta operação pode demorar alguns minutos.')) {
+        return;
+    }
+    
+    try {
+        showToast('Otimizando base de dados...', 'info');
+        
+        const response = await fetch('/admin/api/optimize_db', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast(result.message, 'success');
+            // Mostrar resultados detalhados
+            showOptimizationResults(result.results);
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        console.error('Erro ao otimizar banco:', error);
+        showToast('Erro ao otimizar banco: ' + error.message, 'danger');
+    }
+}
+
+async function restartSystem() {
+    if (!confirm('Reiniciar o sistema? Os usuários serão desconectados temporariamente.')) {
+        return;
+    }
+    
+    try {
+        showToast('Reiniciando sistema...', 'warning');
+        
+        const response = await fetch('/admin/api/restart_system', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast(result.message, 'success');
+            // Recarregar a página após 5 segundos
+            setTimeout(() => {
+                location.reload();
+            }, 5000);
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        console.error('Erro ao reiniciar sistema:', error);
+        showToast('Erro ao reiniciar sistema: ' + error.message, 'danger');
+    }
+}
+
+async function downloadLogs() {
+    try {
+        showToast('Preparando download dos logs...', 'info');
+        
+        // Fazer download direto
+        window.location.href = '/admin/api/download_logs';
+        
+    } catch (error) {
+        console.error('Erro ao baixar logs:', error);
+        showToast('Erro ao baixar logs: ' + error.message, 'danger');
+    }
+}
+
+async function clearLogs() {
+    if (!confirm('Limpar logs antigos (anteriores a 30 dias)? Esta ação não pode ser desfeita.')) {
+        return;
+    }
+    
+    try {
+        showToast('Limpando logs antigos...', 'info');
+        
+        const response = await fetch('/admin/api/clear_old_logs', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast(result.message, 'success');
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        console.error('Erro ao limpar logs:', error);
+        showToast('Erro ao limpar logs: ' + error.message, 'danger');
+    }
+}
+
+// Funções auxiliares para mostrar detalhes
+function showBackupDetails(result) {
+    const modalContent = `
+        <div class="alert alert-success">
+            <h5><i class="fas fa-check-circle me-2"></i>Backup Criado com Sucesso</h5>
+            <p class="mb-2"><strong>Nome do backup:</strong> ${result.backup_name}</p>
+            <p class="mb-0"><strong>Local:</strong> sistema/backups/</p>
+        </div>
+        <div class="mt-3">
+            <h6>Próximos passos:</h6>
+            <ul>
+                <li>O backup foi armazenado no servidor</li>
+                <li>Recomendado fazer download para armazenamento externo</li>
+                <li>Mantenha backups regulares</li>
+            </ul>
+        </div>
+    `;
+    
+    showCustomModal('Detalhes do Backup', modalContent);
+}
+
+function showOptimizationResults(results) {
+    let resultsHtml = '<div class="alert alert-info"><h5>Resultados da Otimização</h5></div>';
+    resultsHtml += '<div class="mt-3"><h6>Comandos Executados:</h6><ul>';
+    
+    results.forEach(result => {
+        resultsHtml += `<li>${result}</li>`;
+    });
+    
+    resultsHtml += '</ul></div>';
+    
+    showCustomModal('Resultados da Otimização', resultsHtml);
+}
+
+function showCustomModal(title, content) {
+    // Criar modal dinâmico
+    const modalId = 'customModal_' + Date.now();
+    const modalHTML = `
+        <div class="modal fade" id="${modalId}" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">${title}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        ${content}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Fechar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    const modal = new bootstrap.Modal(document.getElementById(modalId));
+    modal.show();
+    
+    // Remover modal do DOM quando fechar
+    document.getElementById(modalId).addEventListener('hidden.bs.modal', function() {
+        this.remove();
+    });
+}
+
+// Modo manutenção
+async function toggleMaintenanceMode() {
+    const checkbox = document.getElementById('maintenanceMode');
+    const maintenanceMode = checkbox.checked;
+    
+    try {
+        const response = await fetch('/admin/api/toggle_maintenance', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                maintenance_mode: maintenanceMode
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast(result.message, 'success');
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        console.error('Erro ao alterar modo manutenção:', error);
+        showToast('Erro ao alterar modo manutenção: ' + error.message, 'danger');
+        // Reverter checkbox em caso de erro
+        checkbox.checked = !maintenanceMode;
+    }
+}
+
+// Salvar configurações do sistema
+async function saveSettings() {
+    try {
+        showToast('Salvando configurações...', 'info');
+        
+        // Coletar dados do formulário
+        const formData = new FormData(document.getElementById('systemSettings'));
+        const settings = Object.fromEntries(formData);
+        
+        // Simular salvamento (substitua por chamada real à API)
+        setTimeout(() => {
+            showToast('Configurações salvas com sucesso!', 'success');
+        }, 1000);
+        
+        console.log('Configurações a salvar:', settings);
+        
+    } catch (error) {
+        console.error('Erro ao salvar configurações:', error);
+        showToast('Erro ao salvar configurações', 'danger');
+    }
+}
+
+// Adicionar event listeners quando a página carregar
+document.addEventListener('DOMContentLoaded', function() {
+    // Modo manutenção
+    const maintenanceCheckbox = document.getElementById('maintenanceMode');
+    if (maintenanceCheckbox) {
+        maintenanceCheckbox.addEventListener('change', toggleMaintenanceMode);
+    }
+    
+    // Botão salvar configurações
+    const saveButton = document.querySelector('button[onclick="saveSettings()"]');
+    if (saveButton) {
+        saveButton.addEventListener('click', saveSettings);
+    }
+});

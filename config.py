@@ -38,6 +38,8 @@ class Config:
     # Rate Limiting
     RATELIMIT_STORAGE_URL = "memory://"
     
+    WAQI_API_TOKEN = 's8f482fcd390f25d9c8f7bd230f20d485b1dfeb9a'
+
     # Email settings
     MAIL_SERVER = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
     MAIL_PORT = int(os.environ.get('MAIL_PORT', 587))

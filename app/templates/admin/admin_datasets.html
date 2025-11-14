@@ -1,0 +1,307 @@
+{% extends "base.html" %}
+{% block title %}Gerenciar Datasets - EcoPredict{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h3 mb-0">
+                <i class="fas fa-database me-2"></i>
+                Gerenciar Datasets
+            </h1>
+            <p class="text-muted">Administre todos os datasets do sistema</p>
+        </div>
+        <div class="col-auto">
+            <div class="btn-group">
+                <a href="{{ url_for('main.admin_panel') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>Voltar
+                </a>
+                <button class="btn btn-outline-danger" onclick="cleanupDatasets()">
+                    <i class="fas fa-broom me-1"></i>Limpeza
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estatísticas -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title mb-0">{{ datasets.total }}</h4>
+                            <p class="card-text opacity-75 mb-0">Total Datasets</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-database fa-2x opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title mb-0" id="publicDatasets">0</h4>
+                            <p class="card-text opacity-75 mb-0">Públicos</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-eye fa-2x opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title mb-0" id="totalSize">0 MB</h4>
+                            <p class="card-text opacity-75 mb-0">Espaço Usado</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-hdd fa-2x opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title mb-0" id="todayUploads">0</h4>
+                            <p class="card-text opacity-75 mb-0">Uploads Hoje</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-upload fa-2x opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabela de Datasets -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Todos os Datasets</h5>
+                    <span class="badge bg-primary">{{ datasets.total }} datasets</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Dataset</th>
+                                    <th>Usuário</th>
+                                    <th>Tamanho</th>
+                                    <th>Linhas</th>
+                                    <th>Colunas</th>
+                                    <th>Qualidade</th>
+                                    <th>Visibilidade</th>
+                                    <th>Data Upload</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for dataset in datasets.items %}
+                                <tr id="dataset-{{ dataset.id }}">
+                                    <td><small class="text-muted">#{{ dataset.id }}</small></td>
+                                    <td>
+                                        <div>
+                                            <strong>{{ dataset.original_filename }}</strong>
+                                            {% if dataset.description %}
+                                            <br><small class="text-muted">{{ dataset.description[:50] }}{% if dataset.description|length > 50 %}...{% endif %}</small>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="avatar-sm bg-primary rounded-circle d-flex align-items-center justify-content-center me-2">
+                                                <span class="text-white fw-bold">{{ dataset.uploader.username[0]|upper }}</span>
+                                            </div>
+                                            <div>
+                                                <small>{{ dataset.uploader.username }}</small>
+                                                <br><small class="text-muted">{{ dataset.uploader.email }}</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">
+                                            {{ (dataset.file_size / 1024 / 1024)|round(2) if dataset.file_size else 0 }} MB
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">{{ dataset.rows_count or 'N/A' }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">{{ dataset.columns_count or 'N/A' }}</span>
+                                    </td>
+                                    <td>
+                                        {% if dataset.data_quality_score %}
+                                        <div class="progress" style="height: 6px; width: 80px;">
+                                            <div class="progress-bar 
+                                                {% if dataset.data_quality_score >= 80 %}bg-success
+                                                {% elif dataset.data_quality_score >= 60 %}bg-warning
+                                                {% else %}bg-danger{% endif %}" 
+                                                style="width: {{ dataset.data_quality_score }}%">
+                                            </div>
+                                        </div>
+                                        <small>{{ dataset.data_quality_score|round(1) }}%</small>
+                                        {% else %}
+                                        <span class="badge bg-secondary">N/A</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if dataset.is_public %}
+                                        <span class="badge bg-success">Público</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">Privado</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">{{ dataset.uploaded_at.strftime('%d/%m/%Y %H:%M') }}</small>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-primary" onclick="viewDataset({{ dataset.id }})" title="Visualizar">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                            <a href="{{ url_for('main.download_dataset', dataset_id=dataset.id) }}" class="btn btn-outline-success" title="Download">
+                                                <i class="fas fa-download"></i>
+                                            </a>
+                                            <button class="btn btn-outline-danger" onclick="deleteDataset({{ dataset.id }})" title="Deletar">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="10" class="text-center text-muted py-4">
+                                        <i class="fas fa-database fa-2x mb-2 d-block"></i>
+                                        Nenhum dataset encontrado
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- Paginação -->
+                {% if datasets.pages > 1 %}
+                <div class="card-footer">
+                    <nav aria-label="Navegação de datasets">
+                        <ul class="pagination justify-content-center mb-0">
+                            {% for page_num in datasets.iter_pages(left_edge=2, left_current=2, right_current=2, right_edge=2) %}
+                                {% if page_num %}
+                                    <li class="page-item {% if page_num == datasets.page %}active{% endif %}">
+                                        <a class="page-link" href="{{ url_for('main.admin_datasets', page=page_num) }}">{{ page_num }}</a>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item disabled">
+                                        <span class="page-link">...</span>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+                        </ul>
+                    </nav>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Estatísticas iniciais
+document.addEventListener('DOMContentLoaded', function() {
+    updateDatasetStats();
+});
+
+function updateDatasetStats() {
+    const rows = document.querySelectorAll('tbody tr');
+    let publicCount = 0;
+    let totalSize = 0;
+    let todayCount = 0;
+    const today = new Date().toDateString();
+    
+    rows.forEach(row => {
+        if (!row.id) return;
+        
+        // Contar públicos
+        if (row.querySelector('.badge.bg-success')) publicCount++;
+        
+        // Somar tamanhos
+        const sizeBadge = row.cells[3].querySelector('.badge');
+        if (sizeBadge) {
+            const sizeText = sizeBadge.textContent.replace(' MB', '');
+            totalSize += parseFloat(sizeText) || 0;
+        }
+        
+        // Contar uploads de hoje (simplificado)
+        const dateCell = row.cells[8].textContent.trim();
+        // Implementar lógica de data se necessário
+    });
+    
+    document.getElementById('publicDatasets').textContent = publicCount;
+    document.getElementById('totalSize').textContent = totalSize.toFixed(2) + ' MB';
+    document.getElementById('todayUploads').textContent = todayCount;
+}
+
+// Deletar dataset
+async function deleteDataset(datasetId) {
+    if (!confirm('Tem certeza que deseja deletar este dataset? Esta ação não pode ser desfeita.')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/admin/api/delete_dataset/${datasetId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast(result.message, 'success');
+            // Remover linha da tabela
+            document.getElementById(`dataset-${datasetId}`).remove();
+            updateDatasetStats();
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        console.error('Erro ao deletar dataset:', error);
+        showToast('Erro ao deletar dataset', 'danger');
+    }
+}
+
+function viewDataset(datasetId) {
+    showToast(`Visualizando dataset #${datasetId}...`, 'info');
+    // Implementar visualização
+}
+
+function cleanupDatasets() {
+    if (confirm('Esta ação irá remover datasets corrompidos e otimizar o espaço. Continuar?')) {
+        showToast('Executando limpeza de datasets...', 'info');
+        // Implementar limpeza
+    }
+}
+</script>
+{% endblock %}

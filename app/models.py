@@ -6,6 +6,8 @@ import json
 import secrets
 
 class User(UserMixin, db.Model):
+    __tablename__ = 'user'
+    
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(64), unique=True, nullable=False, index=True)
     email = db.Column(db.String(120), unique=True, nullable=False, index=True)
@@ -21,9 +23,11 @@ class User(UserMixin, db.Model):
     reset_token = db.Column(db.String(100), unique=True, index=True)
     token_expiration = db.Column(db.DateTime)
     
-    # Relationships
+    # Relationships - ATUALIZADAS para as tabelas existentes
     datasets = db.relationship('Dataset', backref='uploader', lazy='dynamic', cascade='all, delete-orphan')
     ml_models = db.relationship('MLModel', backref='creator', lazy='dynamic', cascade='all, delete-orphan')
+    alerts = db.relationship('Alert', backref='user', lazy='dynamic')  # Usando 'Alert' em vez de 'AirQualityAlert'
+    system_logs = db.relationship('SystemLog', backref='user', lazy='dynamic')
     
     def set_password(self, password):
         """Hash e salva a senha"""
@@ -39,44 +43,11 @@ class User(UserMixin, db.Model):
         """Verifica a senha com hash"""
         return check_password_hash(self.password_hash, password)
     
-    def increment_login_attempts(self):
-        """Incrementa tentativas de login falhas"""
-        self.login_attempts += 1
-        if self.login_attempts >= 5:  # Bloqueia após 5 tentativas
-            self.locked_until = datetime.utcnow() + timedelta(minutes=15)
-        db.session.commit()
-    
-    def reset_login_attempts(self):
-        """Reseta tentativas de login"""
-        self.login_attempts = 0
-        self.locked_until = None
-        db.session.commit()
-    
-    def is_locked(self):
-        """Verifica se a conta está bloqueada"""
-        if self.locked_until and datetime.utcnow() < self.locked_until:
-            return True
-        return False
-    
-    def generate_reset_token(self):
-        """Gera token seguro para reset de senha"""
-        self.reset_token = secrets.token_urlsafe(32)
-        self.token_expiration = datetime.utcnow() + timedelta(hours=1)
-        db.session.commit()
-        return self.reset_token
-    
-    def verify_reset_token(self, token):
-        """Verifica token de reset"""
-        if (self.reset_token == token and 
-            self.token_expiration and 
-            datetime.utcnow() < self.token_expiration):
-            return True
-        return False
-    
-    def __repr__(self):
-        return f'<User {self.username}>'
+    # ... (manter o resto dos métodos iguais) ...
 
 class Dataset(db.Model):
+    __tablename__ = 'dataset'
+    
     id = db.Column(db.Integer, primary_key=True)
     filename = db.Column(db.String(255), nullable=False)
     original_filename = db.Column(db.String(255), nullable=False)
@@ -97,22 +68,24 @@ class Dataset(db.Model):
         return f'<Dataset {self.original_filename}>'
 
 class MLModel(db.Model):
+    __tablename__ = 'ml_model'
+    
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False)
-    model_type = db.Column(db.String(100), nullable=False)  # 'regression', 'classification'
-    algorithm = db.Column(db.String(100), nullable=False)   # 'random_forest', 'xgboost', etc.
+    model_type = db.Column(db.String(100), nullable=False)
+    algorithm = db.Column(db.String(100), nullable=False)
     model_path = db.Column(db.String(500), nullable=False)
     accuracy = db.Column(db.Float)
     precision = db.Column(db.Float)
     recall = db.Column(db.Float)
     f1_score = db.Column(db.Float)
-    training_time = db.Column(db.Float)  # in seconds
+    training_time = db.Column(db.Float)
     is_active = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     
     # Feature information
-    features_used = db.Column(db.Text)  # JSON string of features
+    features_used = db.Column(db.Text)
     target_variable = db.Column(db.String(100))
     
     def set_features(self, features_list):
@@ -125,25 +98,25 @@ class MLModel(db.Model):
         return f'<MLModel {self.name}>'
 
 class AirQualityData(db.Model):
+    __tablename__ = 'air_quality_data'
+    
     id = db.Column(db.Integer, primary_key=True)
     location = db.Column(db.String(255), nullable=False)
     latitude = db.Column(db.Float, nullable=False)
     longitude = db.Column(db.Float, nullable=False)
-    pm25 = db.Column(db.Float)  # Particulate Matter 2.5
-    pm10 = db.Column(db.Float)  # Particulate Matter 10
-    no2 = db.Column(db.Float)   # Nitrogen Dioxide
-    so2 = db.Column(db.Float)   # Sulfur Dioxide
-    co = db.Column(db.Float)    # Carbon Monoxide
-    o3 = db.Column(db.Float)    # Ozone
-    aqi = db.Column(db.Float)   # Air Quality Index
+    pm25 = db.Column(db.Float)
+    pm10 = db.Column(db.Float)
+    no2 = db.Column(db.Float)
+    so2 = db.Column(db.Float)
+    co = db.Column(db.Float)
+    o3 = db.Column(db.Float)
+    aqi = db.Column(db.Float)
     temperature = db.Column(db.Float)
     humidity = db.Column(db.Float)
     wind_speed = db.Column(db.Float)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     
     def calculate_aqi(self):
-        # Simplified AQI calculation
-        # In practice, use proper AQI calculation formulas
         pollutants = [self.pm25, self.pm10, self.no2, self.so2, self.co, self.o3]
         valid_pollutants = [p for p in pollutants if p is not None]
         
@@ -152,13 +125,64 @@ class AirQualityData(db.Model):
             return self.aqi
             
         max_pollutant = max(valid_pollutants)
-        # Simplified AQI calculation - scale based on maximum pollutant
         self.aqi = min(max_pollutant * 2, 500)
         return self.aqi
     
     def __repr__(self):
         return f'<AirQualityData {self.location} - AQI: {self.aqi}>'
 
+# USANDO A TABELA 'alert' QUE JÁ EXISTE
+class Alert(db.Model):
+    __tablename__ = 'alert'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    title = db.Column(db.String(200))
+    message = db.Column(db.Text)
+    alert_type = db.Column(db.String(50))
+    severity = db.Column(db.String(20))
+    is_active = db.Column(db.Boolean, default=True)
+    is_read = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    resolved_at = db.Column(db.DateTime)
+
+    # Propriedade para acessar o usuário de forma segura
+    @property
+    def user(self):
+        from app.models import User
+        return User.query.get(self.user_id) if self.user_id else None
+
+    def __repr__(self):
+        return f'<Alert {self.id}: {self.title}>'
+
+class SystemLog(db.Model):
+    __tablename__ = 'system_log'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    level = db.Column(db.String(20), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    module = db.Column(db.String(100), nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    ip_address = db.Column(db.String(45), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
+
+# Função para adicionar logs do sistema
+def log_system_event(level, message, module=None, user_id=None, ip_address=None):
+    try:
+        log = SystemLog(
+            level=level,
+            message=message,
+            module=module,
+            user_id=user_id,
+            ip_address=ip_address
+        )
+        db.session.add(log)
+        db.session.commit()
+        return True
+    except Exception as e:
+        print(f"Erro ao criar log do sistema: {e}")
+        return False

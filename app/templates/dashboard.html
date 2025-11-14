@@ -10,70 +10,170 @@
                 <i class="fas fa-tachometer-alt me-2"></i>
                 Dashboard
             </h1>
-            <p class="text-muted">Visão geral do sistema e métricas principais</p>
+            <p class="text-muted">Monitoramento em tempo real da qualidade do ar</p>
+        </div>
+        <div class="col-auto">
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-secondary" onclick="refreshDashboard()">
+                    <i class="fas fa-sync-alt me-1"></i>Atualizar
+                </button>
+                <button class="btn btn-outline-info" onclick="showAlertSettings()">
+                    <i class="fas fa-bell me-1"></i>Alertas
+                </button>
+            </div>
         </div>
     </div>
 
+    <!-- Alertas em Destaque -->
+    {% if active_alerts %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
+                    <div class="flex-grow-1">
+                        <h5 class="alert-heading mb-1">Alertas Ativos</h5>
+                        <p class="mb-0">
+                            {% for alert in active_alerts[:3] %}
+                            <span class="badge bg-danger me-2">{{ alert.location }}: {{ alert.message }}</span>
+                            {% endfor %}
+                            {% if active_alerts|length > 3 %}
+                            <span class="badge bg-secondary">+{{ active_alerts|length - 3 }} mais</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Statistics Cards -->
     <div class="row g-4 mb-4">
-        <div class="col-xl-3 col-md-6">
-            <div class="card card-custom aqi-excellent">
+        <!-- AQI Médio -->
+        <div class="col-xl-2 col-md-4 col-sm-6">
+            <div class="card card-custom 
+                {% if avg_aqi <= 50 %}bg-success text-white
+                {% elif avg_aqi <= 100 %}bg-info text-white
+                {% elif avg_aqi <= 150 %}bg-warning text-white
+                {% elif avg_aqi <= 200 %}bg-orange text-white
+                {% else %}bg-danger text-white{% endif %}">
                 <div class="card-body">
                     <div class="d-flex align-items-center">
                         <div class="flex-grow-1">
-                            <h4 class="card-title text-white mb-0">{{ "%.1f"|format(avg_aqi) }}</h4>
-                            <p class="card-text text-white-50 mb-0">AQI Médio</p>
+                            <h4 class="card-title mb-0">{{ "%.1f"|format(avg_aqi) }}</h4>
+                            <p class="card-text opacity-75 mb-0">AQI Médio</p>
+                            <small class="opacity-75">
+                                {% if avg_aqi <= 50 %}Bom
+                                {% elif avg_aqi <= 100 %}Moderado
+                                {% elif avg_aqi <= 150 %}Ruim
+                                {% elif avg_aqi <= 200 %}Muito Ruim
+                                {% else %}Perigoso{% endif %}
+                            </small>
                         </div>
                         <div class="flex-shrink-0">
-                            <i class="fas fa-wind fa-2x text-white-50"></i>
+                            <i class="fas fa-wind fa-2x opacity-75"></i>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
         
-        <div class="col-xl-3 col-md-6">
+        <!-- PM2.5 -->
+        <div class="col-xl-2 col-md-4 col-sm-6">
+            <div class="card card-custom 
+                {% if avg_pm25 <= 12 %}bg-success text-white
+                {% elif avg_pm25 <= 35 %}bg-info text-white
+                {% elif avg_pm25 <= 55 %}bg-warning text-white
+                {% else %}bg-danger text-white{% endif %}">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title mb-0">{{ "%.1f"|format(avg_pm25) }}</h4>
+                            <p class="card-text opacity-75 mb-0">PM2.5 (µg/m³)</p>
+                            <small class="opacity-75">Média atual</small>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-smog fa-2x opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Datasets -->
+        <div class="col-xl-2 col-md-4 col-sm-6">
             <div class="card card-custom bg-primary text-white">
                 <div class="card-body">
                     <div class="d-flex align-items-center">
                         <div class="flex-grow-1">
-                            <h4 class="card-title text-white mb-0">{{ total_datasets }}</h4>
-                            <p class="card-text text-white-50 mb-0">Datasets</p>
+                            <h4 class="card-title mb-0">{{ total_datasets }}</h4>
+                            <p class="card-text opacity-75 mb-0">Datasets</p>
+                            <small class="opacity-75">{{ public_datasets }} públicos</small>
                         </div>
                         <div class="flex-shrink-0">
-                            <i class="fas fa-database fa-2x text-white-50"></i>
+                            <i class="fas fa-database fa-2x opacity-75"></i>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
         
-        <div class="col-xl-3 col-md-6">
+        <!-- Modelos ML -->
+        <div class="col-xl-2 col-md-4 col-sm-6">
             <div class="card card-custom bg-success text-white">
                 <div class="card-body">
                     <div class="d-flex align-items-center">
                         <div class="flex-grow-1">
-                            <h4 class="card-title text-white mb-0">{{ total_models }}</h4>
-                            <p class="card-text text-white-50 mb-0">Modelos ML</p>
+                            <h4 class="card-title mb-0">{{ total_models }}</h4>
+                            <p class="card-text opacity-75 mb-0">Modelos ML</p>
+                            <small class="opacity-75">{{ active_models }} ativos</small>
                         </div>
                         <div class="flex-shrink-0">
-                            <i class="fas fa-brain fa-2x text-white-50"></i>
+                            <i class="fas fa-brain fa-2x opacity-75"></i>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-        
-        <div class="col-xl-3 col-md-6">
-            <div class="card card-custom bg-warning text-white">
+
+        <!-- Alertas -->
+        <div class="col-xl-2 col-md-4 col-sm-6">
+            <div class="card card-custom 
+                {% if active_alerts|length == 0 %}bg-secondary text-white
+                {% elif active_alerts|length <= 2 %}bg-warning text-white
+                {% else %}bg-danger text-white{% endif %}">
                 <div class="card-body">
                     <div class="d-flex align-items-center">
                         <div class="flex-grow-1">
-                            <h4 class="card-title text-white mb-0">{{ active_models }}</h4>
-                            <p class="card-text text-white-50 mb-0">Modelos Ativos</p>
+                            <h4 class="card-title mb-0">{{ active_alerts|length }}</h4>
+                            <p class="card-text opacity-75 mb-0">Alertas</p>
+                            <small class="opacity-75">
+                                {% if active_alerts|length == 0 %}Sem alertas
+                                {% else %}Ativos{% endif %}
+                            </small>
                         </div>
                         <div class="flex-shrink-0">
-                            <i class="fas fa-check-circle fa-2x text-white-50"></i>
+                            <i class="fas fa-bell fa-2x opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Previsão -->
+        <div class="col-xl-2 col-md-4 col-sm-6">
+            <div class="card card-custom bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title mb-0">{{ prediction_accuracy }}</h4>
+                            <p class="card-text opacity-75 mb-0">Precisão</p>
+                            <small class="opacity-75">Modelos ML</small>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-chart-line fa-2x opacity-75"></i>
                         </div>
                     </div>
                 </div>
@@ -82,46 +182,100 @@
     </div>
 
     <div class="row g-4">
-        <!-- AQI Distribution Chart -->
-        <div class="col-xl-6">
+        <!-- Gráfico de Tendência AQI -->
+        <div class="col-xl-8">
             <div class="card card-custom">
-                <div class="card-header">
+                <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="card-title mb-0">
-                        <i class="fas fa-chart-pie me-2"></i>
-                        Distribuição do AQI
+                        <i class="fas fa-chart-line me-2"></i>
+                        Tendência do AQI (Últimas 24h)
                     </h5>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary active" onclick="changeTrendView('24h')">24h</button>
+                        <button class="btn btn-outline-secondary" onclick="changeTrendView('7d')">7d</button>
+                        <button class="btn btn-outline-secondary" onclick="changeTrendView('30d')">30d</button>
+                    </div>
                 </div>
                 <div class="card-body">
-                    <canvas id="aqiChart" width="400" height="200"></canvas>
+                    <canvas id="trendChart" width="400" height="250"></canvas>
                 </div>
             </div>
         </div>
 
-        <!-- Recent Data -->
-        <div class="col-xl-6">
+        <!-- Mapa de Calor de Poluentes -->
+        <div class="col-xl-4">
             <div class="card card-custom">
                 <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-fire me-2"></i>
+                        Níveis de Poluentes
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="pollutant-levels">
+                        {% for pollutant, value in pollutant_levels.items() %}
+                        <div class="pollutant-item mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="fw-bold">{{ pollutant.upper() }}</span>
+                                <span class="badge 
+                                    {% if value <= 25 %}bg-success
+                                    {% elif value <= 50 %}bg-info
+                                    {% elif value <= 75 %}bg-warning
+                                    {% else %}bg-danger{% endif %}">
+                                    {{ "%.1f"|format(value) }} µg/m³
+                                </span>
+                            </div>
+                            <div class="progress" style="height: 8px;">
+                                <div class="progress-bar 
+                                    {% if value <= 25 %}bg-success
+                                    {% elif value <= 50 %}bg-info
+                                    {% elif value <= 75 %}bg-warning
+                                    {% else %}bg-danger{% endif %}" 
+                                    style="width: {{ [value, 100]|min }}%">
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dados Recentes com Alertas -->
+        <div class="col-xl-6">
+            <div class="card card-custom">
+                <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="card-title mb-0">
                         <i class="fas fa-clock me-2"></i>
                         Dados Recentes
                     </h5>
+                    <span class="badge bg-primary">{{ recent_data|length }} registros</span>
                 </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
+                <div class="card-body p-0">
+                    <div class="table-responsive" style="max-height: 400px;">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light sticky-top">
                                 <tr>
                                     <th>Localização</th>
                                     <th>AQI</th>
                                     <th>PM2.5</th>
                                     <th>Temp</th>
+                                    <th>Status</th>
                                     <th>Data</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for data in recent_data %}
-                                <tr>
-                                    <td>{{ data.location }}</td>
+                                <tr class="{% if data.alert %}table-warning{% endif %}">
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <i class="fas fa-map-marker-alt text-muted me-2"></i>
+                                            {{ data.location }}
+                                            {% if data.alert %}
+                                            <i class="fas fa-exclamation-circle text-warning ms-2" title="Alerta ativo"></i>
+                                            {% endif %}
+                                        </div>
+                                    </td>
                                     <td>
                                         <span class="badge 
                                             {% if data.aqi <= 50 %}bg-success
@@ -133,18 +287,101 @@
                                         </span>
                                     </td>
                                     <td>{{ "%.1f"|format(data.pm25) if data.pm25 else 'N/A' }}</td>
-                                    <td>{{ "%.1f"|format(data.temperature) if data.temperature else 'N/A' }}°C</td>
-                                    <td>{{ data.timestamp.strftime('%d/%m %H:%M') }}</td>
+                                    <td>
+                                        <span class="badge bg-secondary">
+                                            {{ "%.1f"|format(data.temperature) if data.temperature else 'N/A' }}°C
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if data.aqi <= 50 %}
+                                        <span class="badge bg-success">Bom</span>
+                                        {% elif data.aqi <= 100 %}
+                                        <span class="badge bg-info">Moderado</span>
+                                        {% elif data.aqi <= 150 %}
+                                        <span class="badge bg-warning">Ruim</span>
+                                        {% elif data.aqi <= 200 %}
+                                        <span class="badge bg-orange">Muito Ruim</span>
+                                        {% else %}
+                                        <span class="badge bg-danger">Perigoso</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">{{ data.timestamp.strftime('%d/%m %H:%M') }}</small>
+                                    </td>
                                 </tr>
                                 {% else %}
                                 <tr>
-                                    <td colspan="5" class="text-center text-muted">
+                                    <td colspan="6" class="text-center text-muted py-4">
+                                        <i class="fas fa-database fa-2x mb-2 d-block"></i>
                                         Nenhum dado disponível
                                     </td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alertas e Notificações -->
+        <div class="col-xl-6">
+            <div class="card card-custom">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-bell me-2"></i>
+                        Sistema de Alertas
+                    </h5>
+                    <span class="badge bg-warning">{{ active_alerts|length }} ativos</span>
+                </div>
+                <div class="card-body">
+                    {% if active_alerts %}
+                    <div class="alert-list">
+                        {% for alert in active_alerts %}
+                        <div class="alert alert-{{ 'danger' if alert.severity == 'high' else 'warning' }} d-flex align-items-center mb-2">
+                            <i class="fas fa-{{ 'exclamation-triangle' if alert.severity == 'high' else 'exclamation-circle' }} me-2"></i>
+                            <div class="flex-grow-1">
+                                <strong>{{ alert.location }}</strong>: {{ alert.message }}
+                                <br>
+                                <small class="text-muted">{{ alert.timestamp.strftime('%d/%m/%Y %H:%M') }}</small>
+                            </div>
+                            <button class="btn btn-sm btn-outline-{{ 'danger' if alert.severity == 'high' else 'warning' }}" 
+                                    onclick="dismissAlert({{ alert.id }})">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                        <p class="mb-0">Nenhum alerta ativo no momento</p>
+                        <small>Todos os sistemas operando normalmente</small>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="mt-3">
+                        <h6>Configurações de Alerta</h6>
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <small class="text-muted">AQI Crítico:</small>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">></span>
+                                    <input type="number" class="form-control" value="150" id="aqiThreshold">
+                                    <span class="input-group-text">AQI</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted">PM2.5 Máximo:</small>
+                                <div class="input-group input-group-sm">
+                                    <input type="number" class="form-control" value="35" id="pm25Threshold">
+                                    <span class="input-group-text">µg/m³</span>
+                                </div>
+                            </div>
+                        </div>
+                        <button class="btn btn-sm btn-primary mt-2 w-100" onclick="updateAlertSettings()">
+                            <i class="fas fa-save me-1"></i>Salvar Configurações
+                        </button>
                     </div>
                 </div>
             </div>
@@ -161,28 +398,40 @@
                 </div>
                 <div class="card-body">
                     <div class="row g-3">
-                        <div class="col-md-3 col-6">
+                        <div class="col-md-2 col-6">
                             <a href="{{ url_for('main.upload_data') }}" class="btn btn-outline-primary w-100 h-100 py-3">
                                 <i class="fas fa-upload fa-2x mb-2"></i><br>
-                                Upload de Dados
+                                <small>Upload de Dados</small>
                             </a>
                         </div>
-                        <div class="col-md-3 col-6">
+                        <div class="col-md-2 col-6">
                             <a href="{{ url_for('main.map_view') }}" class="btn btn-outline-success w-100 h-100 py-3">
                                 <i class="fas fa-map-marked-alt fa-2x mb-2"></i><br>
-                                Ver Mapa
+                                <small>Mapa Interativo</small>
                             </a>
                         </div>
-                        <div class="col-md-3 col-6">
+                        <div class="col-md-2 col-6">
+                            <a href="{{ url_for('external.sources') }}" class="btn btn-outline-info w-100 h-100 py-3">
+                                <i class="fas fa-cloud-download-alt fa-2x mb-2"></i><br>
+                                <small>Dados Externos</small>
+                            </a>
+                        </div>
+                        <div class="col-md-2 col-6">
                             <a href="{{ url_for('main.ml_models') }}" class="btn btn-outline-warning w-100 h-100 py-3">
                                 <i class="fas fa-brain fa-2x mb-2"></i><br>
-                                Treinar Modelo
+                                <small>Modelos ML</small>
                             </a>
                         </div>
-                        <div class="col-md-3 col-6">
-                            <a href="{{ url_for('main.reports') }}" class="btn btn-outline-info w-100 h-100 py-3">
+                        <div class="col-md-2 col-6">
+                            <a href="{{ url_for('main.datasets') }}" class="btn btn-outline-secondary w-100 h-100 py-3">
+                                <i class="fas fa-database fa-2x mb-2"></i><br>
+                                <small>Meus Datasets</small>
+                            </a>
+                        </div>
+                        <div class="col-md-2 col-6">
+                            <a href="{{ url_for('main.reports') }}" class="btn btn-outline-dark w-100 h-100 py-3">
                                 <i class="fas fa-chart-bar fa-2x mb-2"></i><br>
-                                Ver Relatórios
+                                <small>Relatórios</small>
                             </a>
                         </div>
                     </div>
@@ -191,39 +440,370 @@
         </div>
     </div>
 </div>
+
+<!-- Modal de Configurações de Alerta -->
+<div class="modal fade" id="alertSettingsModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Configurações de Alertas</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Conteúdo do modal será carregado via JavaScript -->
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
+// Variável global para o gráfico de tendência
+let trendChart = null;
+
 document.addEventListener('DOMContentLoaded', function() {
-    // AQI Distribution Chart
-    const aqiCtx = document.getElementById('aqiChart').getContext('2d');
-    const aqiChart = new Chart(aqiCtx, {
-        type: 'doughnut',
-        data: {
-            labels: {{ aqi_categories.keys()|list|tojson }},
-            datasets: [{
-                data: {{ aqi_categories.values()|list|tojson }},
-                backgroundColor: [
-                    '#28a745', '#17a2b8', '#ffc107', '#fd7e14', '#dc3545', '#6f42c1'
-                ],
-                borderWidth: 2,
-                borderColor: '#fff'
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: {
-                        padding: 20,
-                        usePointStyle: true
+    console.log('Inicializando dashboard...');
+    console.log('Dados recebidos:', {
+        trendLabels: {{ trend_labels|tojson }},
+        trendData: {{ trend_data|tojson }}
+    });
+    
+    // Gráfico de Tendência
+    const trendCtx = document.getElementById('trendChart');
+    if (trendCtx) {
+        // Destruir gráfico anterior se existir
+        if (trendChart) {
+            trendChart.destroy();
+        }
+        
+        const trendLabels = {{ trend_labels|tojson }};
+        const trendData = {{ trend_data|tojson }};
+        
+        console.log('Criando gráfico de tendência:', { trendLabels, trendData });
+        
+        trendChart = new Chart(trendCtx, {
+            type: 'line',
+            data: {
+                labels: trendLabels,
+                datasets: [{
+                    label: 'AQI',
+                    data: trendData,
+                    borderColor: '#007bff',
+                    backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#007bff',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 2,
+                    pointRadius: 5,
+                    pointHoverRadius: 7
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            label: function(context) {
+                                return `AQI: ${context.parsed.y}`;
+                            }
+                        }
                     }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        title: {
+                            display: true,
+                            text: 'Índice AQI',
+                            color: '#6c757d',
+                            font: {
+                                weight: 'bold'
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(0,0,0,0.1)'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Horário',
+                            color: '#6c757d',
+                            font: {
+                                weight: 'bold'
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(0,0,0,0.1)'
+                        }
+                    }
+                },
+                interaction: {
+                    intersect: false,
+                    mode: 'nearest'
                 }
             }
+        });
+        
+        console.log('Gráfico de tendência criado com sucesso');
+    } else {
+        console.error('Elemento trendChart não encontrado');
+    }
+});
+
+// Funções do Dashboard
+function refreshDashboard() {
+    const btn = event?.target || document.querySelector('button[onclick*="refreshDashboard"]');
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Atualizando...';
+    btn.disabled = true;
+    
+    // Simular atualização de dados
+    setTimeout(() => {
+        fetch(window.location.href)
+            .then(response => response.text())
+            .then(html => {
+                // Recarregar a página para obter dados atualizados
+                location.reload();
+            })
+            .catch(error => {
+                console.error('Erro ao atualizar:', error);
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+                showToast('Erro ao atualizar dashboard', 'danger');
+            });
+    }, 1500);
+}
+
+function changeTrendView(period) {
+    // Atualizar botões ativos
+    const buttons = event.target.closest('.btn-group').querySelectorAll('.btn');
+    buttons.forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+    
+    // Simular mudança de dados
+    showToast(`Visualização alterada para ${period}`, 'info');
+    
+    // Aqui você implementaria a lógica para buscar dados do período selecionado
+    console.log('Mudando para período:', period);
+    
+    // Simular novos dados para demonstração
+    if (trendChart) {
+        let newData, newLabels;
+        
+        switch(period) {
+            case '24h':
+                newLabels = ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00'];
+                newData = [45, 52, 48, 65, 70, 55];
+                break;
+            case '7d':
+                newLabels = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+                newData = [48, 52, 45, 60, 65, 58, 50];
+                break;
+            case '30d':
+                newLabels = ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'];
+                newData = [52, 48, 55, 50];
+                break;
         }
+        
+        trendChart.data.labels = newLabels;
+        trendChart.data.datasets[0].data = newData;
+        trendChart.update('none');
+        
+        showToast(`Dados de ${period} carregados`, 'success');
+    }
+}
+
+function dismissAlert(alertId) {
+    if (confirm('Deseja realmente descartar este alerta?')) {
+        // Simular descarte de alerta
+        const alertElement = event.target.closest('.alert');
+        if (alertElement) {
+            alertElement.style.opacity = '0';
+            setTimeout(() => {
+                alertElement.remove();
+                updateAlertCounter();
+                showToast('Alerta descartado', 'success');
+            }, 300);
+        }
+    }
+}
+
+function updateAlertCounter() {
+    const alertCount = document.querySelectorAll('.alert-list .alert').length;
+    const badge = document.querySelector('.card-header .badge.bg-warning, .card-header .badge.bg-danger');
+    if (badge) {
+        badge.textContent = alertCount;
+        badge.className = `badge bg-${alertCount === 0 ? 'secondary' : alertCount <= 2 ? 'warning' : 'danger'}`;
+    }
+    
+    // Atualizar card de estatísticas
+    const alertStat = document.querySelector('.card-custom .card-title');
+    if (alertStat) {
+        alertStat.textContent = alertCount;
+    }
+}
+
+function updateAlertSettings() {
+    const aqiThreshold = document.getElementById('aqiThreshold')?.value || 150;
+    const pm25Threshold = document.getElementById('pm25Threshold')?.value || 35;
+    
+    showToast(`Configurações salvas: AQI > ${aqiThreshold}, PM2.5 > ${pm25Threshold}µg/m³`, 'success');
+    
+    // Aqui você enviaria as configurações para o backend
+    console.log('Salvando configurações:', { aqiThreshold, pm25Threshold });
+}
+
+function showAlertSettings() {
+    const modalContent = `
+        <div class="row g-3">
+            <div class="col-12">
+                <label class="form-label">Limite de AQI para Alerta</label>
+                <input type="number" class="form-control" value="150" min="0" max="500" id="modalAqiThreshold">
+                <div class="form-text">Alertas serão gerados quando o AQI ultrapassar este valor</div>
+            </div>
+            <div class="col-12">
+                <label class="form-label">Limite de PM2.5 (µg/m³)</label>
+                <input type="number" class="form-control" value="35" min="0" max="500" id="modalPm25Threshold">
+                <div class="form-text">Nível máximo permitido de PM2.5</div>
+            </div>
+            <div class="col-12">
+                <label class="form-label">Notificações por Email</label>
+                <select class="form-select" id="emailNotifications">
+                    <option value="immediate">Imediatamente</option>
+                    <option value="daily" selected>Resumo Diário</option>
+                    <option value="weekly">Resumo Semanal</option>
+                    <option value="never">Nunca</option>
+                </select>
+            </div>
+        </div>
+        <div class="mt-3">
+            <button class="btn btn-primary w-100" onclick="saveAlertSettings()">
+                <i class="fas fa-save me-1"></i>Salvar Configurações
+            </button>
+        </div>
+    `;
+    
+    document.getElementById('alertSettingsModal').querySelector('.modal-body').innerHTML = modalContent;
+    new bootstrap.Modal(document.getElementById('alertSettingsModal')).show();
+}
+
+function saveAlertSettings() {
+    const aqiThreshold = document.getElementById('modalAqiThreshold').value;
+    const pm25Threshold = document.getElementById('modalPm25Threshold').value;
+    const emailPref = document.getElementById('emailNotifications').value;
+    
+    showToast('Configurações de alerta salvas com sucesso!', 'success');
+    bootstrap.Modal.getInstance(document.getElementById('alertSettingsModal')).hide();
+    
+    console.log('Configurações salvas:', { aqiThreshold, pm25Threshold, emailPref });
+}
+
+function showToast(message, type = 'info') {
+    // Criar container se não existir
+    let container = document.getElementById('toastContainer');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toastContainer';
+        container.className = 'toast-container position-fixed top-0 end-0 p-3';
+        container.style.zIndex = '9999';
+        document.body.appendChild(container);
+    }
+    
+    const toastId = 'toast-' + Date.now();
+    const toastHTML = `
+        <div id="${toastId}" class="toast align-items-center text-white bg-${type} border-0" role="alert">
+            <div class="d-flex">
+                <div class="toast-body">
+                    <i class="fas ${getToastIcon(type)} me-2"></i>
+                    ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    `;
+    
+    container.insertAdjacentHTML('beforeend', toastHTML);
+    const toastElement = document.getElementById(toastId);
+    const toast = new bootstrap.Toast(toastElement, { delay: 4000 });
+    toast.show();
+    
+    toastElement.addEventListener('hidden.bs.toast', () => {
+        toastElement.remove();
     });
+}
+
+function getToastIcon(type) {
+    const icons = {
+        'success': 'check-circle',
+        'danger': 'exclamation-triangle',
+        'warning': 'exclamation-circle',
+        'info': 'info-circle'
+    };
+    return icons[type] || 'info-circle';
+}
+
+// Debug: Verificar se os dados estão chegando
+console.log('Dashboard carregado', {
+    hasTrendData: {{ trend_data|tojson }}.length > 0
 });
 </script>
+
+<style>
+/* Estilos para garantir que os gráficos sejam visíveis */
+#trendChart {
+    max-height: 300px;
+    min-height: 250px;
+}
+
+.card-body canvas {
+    width: 100% !important;
+}
+
+/* Melhorar a visualização dos gráficos */
+.chart-container {
+    position: relative;
+    height: 300px;
+    width: 100%;
+}
+
+/* Ajustes para cards de gráficos */
+.card .card-body {
+    position: relative;
+}
+
+/* Garantir que os botões de período funcionem */
+.btn-group .btn.active {
+    background-color: #007bff;
+    border-color: #007bff;
+    color: white;
+}
+
+/* Animações suaves */
+.alert {
+    transition: opacity 0.3s ease;
+}
+
+.card-custom {
+    transition: transform 0.2s ease-in-out;
+}
+
+.card-custom:hover {
+    transform: translateY(-2px);
+}
+
+/* Cor para o estado "Muito Ruim" */
+.bg-orange {
+    background-color: #fd7e14 !important;
+}
+</style>
 {% endblock %}

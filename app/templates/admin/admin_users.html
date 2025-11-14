@@ -1,0 +1,445 @@
+{% extends "base.html" %}
+{% block title %}Gerenciar Usuários - EcoPredict{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h3 mb-0">
+                <i class="fas fa-users-cog me-2"></i>
+                Gerenciar Usuários
+            </h1>
+            <p class="text-muted">Administre os usuários do sistema</p>
+        </div>
+        <div class="col-auto">
+            <div class="btn-group">
+                <a href="{{ url_for('main.admin_panel') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>Voltar
+                </a>
+                <button class="btn btn-outline-primary" onclick="exportUsers()">
+                    <i class="fas fa-download me-1"></i>Exportar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros e Busca -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Buscar Usuário</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" placeholder="Nome, email..." id="searchUsers">
+                                <button class="btn btn-outline-secondary" type="button">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Status</label>
+                            <select class="form-select" id="statusFilter">
+                                <option value="all">Todos</option>
+                                <option value="active">Ativos</option>
+                                <option value="inactive">Inativos</option>
+                                <option value="locked">Bloqueados</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Tipo</label>
+                            <select class="form-select" id="typeFilter">
+                                <option value="all">Todos</option>
+                                <option value="admin">Administradores</option>
+                                <option value="user">Usuários</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">&nbsp;</label>
+                            <button class="btn btn-primary w-100" onclick="applyFilters()">
+                                <i class="fas fa-filter me-1"></i>Filtrar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estatísticas Rápidas -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title mb-0">{{ users.total }}</h4>
+                            <p class="card-text opacity-75 mb-0">Total Usuários</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-users fa-2x opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title mb-0" id="activeUsersCount">0</h4>
+                            <p class="card-text opacity-75 mb-0">Usuários Ativos</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-user-check fa-2x opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title mb-0" id="adminUsersCount">0</h4>
+                            <p class="card-text opacity-75 mb-0">Administradores</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-crown fa-2x opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title mb-0" id="newUsersCount">0</h4>
+                            <p class="card-text opacity-75 mb-0">Novos (7 dias)</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-user-plus fa-2x opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabela de Usuários -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Lista de Usuários</h5>
+                    <span class="badge bg-primary">{{ users.total }} usuários</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Usuário</th>
+                                    <th>Email</th>
+                                    <th>Status</th>
+                                    <th>Tipo</th>
+                                    <th>Data Cadastro</th>
+                                    <th>Último Login</th>
+                                    <th>Datasets</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for user in users.items %}
+                                <tr id="user-{{ user.id }}">
+                                    <td><small class="text-muted">#{{ user.id }}</small></td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="avatar-sm bg-primary rounded-circle d-flex align-items-center justify-content-center me-2">
+                                                <span class="text-white fw-bold">{{ user.username[0]|upper }}</span>
+                                            </div>
+                                            <div>
+                                                <strong>{{ user.username }}</strong>
+                                                {% if user.locked_until and user.locked_until > datetime.utcnow() %}
+                                                <i class="fas fa-lock text-danger ms-1" title="Conta bloqueada"></i>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>{{ user.email }}</td>
+                                    <td>
+                                        {% if user.is_active %}
+                                        <span class="badge bg-success">Ativo</span>
+                                        {% else %}
+                                        <span class="badge bg-danger">Inativo</span>
+                                        {% endif %}
+                                        
+                                        {% if user.locked_until and user.locked_until > datetime.utcnow() %}
+                                        <span class="badge bg-warning">Bloqueado</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if user.is_admin %}
+                                        <span class="badge bg-purple">Administrador</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">Usuário</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">{{ user.created_at.strftime('%d/%m/%Y') }}</small>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">
+                                            {% if user.last_login %}
+                                            {{ user.last_login.strftime('%d/%m/%Y %H:%M') }}
+                                            {% else %}
+                                            Nunca
+                                            {% endif %}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">{{ user.datasets.count() }}</span>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-primary" onclick="viewUserDetails({{ user.id }})" title="Ver detalhes">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                            <button class="btn btn-outline-warning" onclick="editUser({{ user.id }})" title="Editar">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            {% if user.id != current_user.id %}
+                                            <button class="btn btn-outline-{{ 'success' if not user.is_active else 'secondary' }}" 
+                                                    onclick="toggleUserStatus({{ user.id }})"
+                                                    title="{{ 'Ativar' if not user.is_active else 'Desativar' }}">
+                                                <i class="fas fa-{{ 'check' if not user.is_active else 'times' }}"></i>
+                                            </button>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="9" class="text-center text-muted py-4">
+                                        <i class="fas fa-users fa-2x mb-2 d-block"></i>
+                                        Nenhum usuário encontrado
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- Paginação -->
+                {% if users.pages > 1 %}
+                <div class="card-footer">
+                    <nav aria-label="Navegação de usuários">
+                        <ul class="pagination justify-content-center mb-0">
+                            {% for page_num in users.iter_pages(left_edge=2, left_current=2, right_current=2, right_edge=2) %}
+                                {% if page_num %}
+                                    <li class="page-item {% if page_num == users.page %}active{% endif %}">
+                                        <a class="page-link" href="{{ url_for('main.admin_users', page=page_num) }}">{{ page_num }}</a>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item disabled">
+                                        <span class="page-link">...</span>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+                        </ul>
+                    </nav>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Detalhes do Usuário -->
+<div class="modal fade" id="userDetailsModal">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detalhes do Usuário</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="userDetailsContent">
+                <!-- Conteúdo carregado via JavaScript -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Estatísticas iniciais
+document.addEventListener('DOMContentLoaded', function() {
+    updateUserStats();
+});
+
+function updateUserStats() {
+    const rows = document.querySelectorAll('tbody tr');
+    let activeCount = 0;
+    let adminCount = 0;
+    let newCount = 0;
+    
+    rows.forEach(row => {
+        if (!row.id) return;
+        
+        // Contar ativos
+        if (row.querySelector('.badge.bg-success')) activeCount++;
+        
+        // Contar admins
+        if (row.querySelector('.badge.bg-purple')) adminCount++;
+        
+        // Contar novos (últimos 7 dias) - simplificado
+        const dateCell = row.cells[5].textContent.trim();
+        // Implementar lógica de data se necessário
+    });
+    
+    document.getElementById('activeUsersCount').textContent = activeCount;
+    document.getElementById('adminUsersCount').textContent = adminCount;
+    document.getElementById('newUsersCount').textContent = newCount;
+}
+
+// Alternar status do usuário
+async function toggleUserStatus(userId) {
+    if (!confirm('Tem certeza que deseja alterar o status deste usuário?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/admin/api/toggle_user/${userId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast(result.message, 'success');
+            // Recarregar a página para refletir mudanças
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        console.error('Erro ao alterar status:', error);
+        showToast('Erro ao alterar status do usuário', 'danger');
+    }
+}
+
+// Ver detalhes do usuário
+async function viewUserDetails(userId) {
+    try {
+        const response = await fetch(`/admin/api/user_details/${userId}`);
+        const user = await response.json();
+        
+        const modalContent = `
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Informações Básicas</h6>
+                    <table class="table table-sm">
+                        <tr>
+                            <td><strong>ID:</strong></td>
+                            <td>${user.id}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Usuário:</strong></td>
+                            <td>${user.username}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Email:</strong></td>
+                            <td>${user.email}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Tipo:</strong></td>
+                            <td>${user.is_admin ? 'Administrador' : 'Usuário'}</td>
+                        </tr>
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <h6>Estatísticas</h6>
+                    <table class="table table-sm">
+                        <tr>
+                            <td><strong>Datasets:</strong></td>
+                            <td>${user.datasets_count || 0}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Modelos ML:</strong></td>
+                            <td>${user.models_count || 0}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Último Login:</strong></td>
+                            <td>${user.last_login || 'Nunca'}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            <div class="mt-3">
+                <h6>Atividade Recente</h6>
+                <p class="text-muted">Funcionalidade em desenvolvimento...</p>
+            </div>
+        `;
+        
+        document.getElementById('userDetailsContent').innerHTML = modalContent;
+        new bootstrap.Modal(document.getElementById('userDetailsModal')).show();
+        
+    } catch (error) {
+        console.error('Erro ao carregar detalhes:', error);
+        showToast('Erro ao carregar detalhes do usuário', 'danger');
+    }
+}
+
+function editUser(userId) {
+    showToast('Funcionalidade de edição em desenvolvimento', 'info');
+}
+
+function exportUsers() {
+    showToast('Exportando lista de usuários...', 'info');
+    // Implementar exportação
+}
+
+function applyFilters() {
+    showToast('Aplicando filtros...', 'info');
+    // Implementar filtros
+}
+
+// Função de toast
+function showToast(message, type = 'info') {
+    // Sua função toast existente
+    console.log(`[${type}] ${message}`);
+}
+</script>
+
+<style>
+.avatar-sm {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+}
+
+.bg-purple {
+    background-color: #6f42c1 !important;
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+.btn-group-sm > .btn {
+    padding: 0.25rem 0.5rem;
+}
+</style>
+{% endblock %}

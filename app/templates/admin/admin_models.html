@@ -1,0 +1,295 @@
+{% extends "base.html" %}
+{% block title %}Gerenciar Modelos ML - EcoPredict{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h3 mb-0">
+                <i class="fas fa-brain me-2"></i>
+                Gerenciar Modelos ML
+            </h1>
+            <p class="text-muted">Administre os modelos de machine learning</p>
+        </div>
+        <div class="col-auto">
+            <div class="btn-group">
+                <a href="{{ url_for('main.admin_panel') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>Voltar
+                </a>
+                <button class="btn btn-outline-primary" onclick="trainNewModel()">
+                    <i class="fas fa-plus me-1"></i>Novo Modelo
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estatísticas -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title mb-0">{{ models.total }}</h4>
+                            <p class="card-text opacity-75 mb-0">Total Modelos</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-brain fa-2x opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title mb-0" id="activeModels">0</h4>
+                            <p class="card-text opacity-75 mb-0">Modelos Ativos</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-play-circle fa-2x opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title mb-0" id="trainingModels">0</h4>
+                            <p class="card-text opacity-75 mb-0">Em Treinamento</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-sync fa-2x opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h4 class="card-title mb-0" id="avgAccuracy">0%</h4>
+                            <p class="card-text opacity-75 mb-0">Precisão Média</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-chart-line fa-2x opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabela de Modelos -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Todos os Modelos</h5>
+                    <span class="badge bg-primary">{{ models.total }} modelos</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Nome do Modelo</th>
+                                    <th>Usuário</th>
+                                    <th>Algoritmo</th>
+                                    <th>Tipo</th>
+                                    <th>Precisão</th>
+                                    <th>Status</th>
+                                    <th>Target</th>
+                                    <th>Data Criação</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for model in models.items %}
+                                <tr id="model-{{ model.id }}">
+                                    <td><small class="text-muted">#{{ model.id }}</small></td>
+                                    <td>
+                                        <div>
+                                            <strong>{{ model.name }}</strong>
+                                            {% if model.features_used %}
+                                            <br><small class="text-muted">{{ model.get_features()|length }} features</small>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="avatar-sm bg-primary rounded-circle d-flex align-items-center justify-content-center me-2">
+                                                <span class="text-white fw-bold">{{ model.creator.username[0]|upper }}</span>
+                                            </div>
+                                            <div>
+                                                <small>{{ model.creator.username }}</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info text-capitalize">{{ model.algorithm }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary text-capitalize">{{ model.model_type }}</span>
+                                    </td>
+                                    <td>
+                                        {% if model.accuracy %}
+                                        <div class="d-flex align-items-center">
+                                            <div class="progress flex-grow-1 me-2" style="height: 6px;">
+                                                <div class="progress-bar 
+                                                    {% if model.accuracy >= 0.9 %}bg-success
+                                                    {% elif model.accuracy >= 0.7 %}bg-warning
+                                                    {% else %}bg-danger{% endif %}" 
+                                                    style="width: {{ model.accuracy * 100 }}%">
+                                                </div>
+                                            </div>
+                                            <small>{{ (model.accuracy * 100)|round(1) }}%</small>
+                                        </div>
+                                        {% else %}
+                                        <span class="badge bg-secondary">N/A</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if model.is_active %}
+                                        <span class="badge bg-success">Ativo</span>
+                                        {% elif model.status == 'training' %}
+                                        <span class="badge bg-warning">
+                                            <i class="fas fa-sync fa-spin me-1"></i>Treinando
+                                        </span>
+                                        {% elif model.status == 'error' %}
+                                        <span class="badge bg-danger">Erro</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">Inativo</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">{{ model.target_variable or 'N/A' }}</small>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">{{ model.created_at.strftime('%d/%m/%Y') }}</small>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-primary" onclick="viewModel({{ model.id }})" title="Detalhes">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                            <button class="btn btn-outline-success" onclick="toggleModel({{ model.id }})" 
+                                                    title="{{ 'Desativar' if model.is_active else 'Ativar' }}">
+                                                <i class="fas fa-{{ 'pause' if model.is_active else 'play' }}"></i>
+                                            </button>
+                                            <button class="btn btn-outline-danger" onclick="deleteModel({{ model.id }})" title="Deletar">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="10" class="text-center text-muted py-4">
+                                        <i class="fas fa-brain fa-2x mb-2 d-block"></i>
+                                        Nenhum modelo encontrado
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- Paginação -->
+                {% if models.pages > 1 %}
+                <div class="card-footer">
+                    <nav aria-label="Navegação de modelos">
+                        <ul class="pagination justify-content-center mb-0">
+                            {% for page_num in models.iter_pages(left_edge=2, left_current=2, right_current=2, right_edge=2) %}
+                                {% if page_num %}
+                                    <li class="page-item {% if page_num == models.page %}active{% endif %}">
+                                        <a class="page-link" href="{{ url_for('main.admin_models', page=page_num) }}">{{ page_num }}</a>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item disabled">
+                                        <span class="page-link">...</span>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+                        </ul>
+                    </nav>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Estatísticas iniciais
+document.addEventListener('DOMContentLoaded', function() {
+    updateModelStats();
+});
+
+function updateModelStats() {
+    const rows = document.querySelectorAll('tbody tr');
+    let activeCount = 0;
+    let trainingCount = 0;
+    let totalAccuracy = 0;
+    let accuracyCount = 0;
+    
+    rows.forEach(row => {
+        if (!row.id) return;
+        
+        // Contar ativos
+        if (row.querySelector('.badge.bg-success')) activeCount++;
+        
+        // Contar em treinamento
+        if (row.querySelector('.badge.bg-warning')) trainingCount++;
+        
+        // Calcular precisão média
+        const accuracyText = row.cells[5].textContent.trim();
+        if (accuracyText.includes('%')) {
+            const accuracy = parseFloat(accuracyText.replace('%', ''));
+            if (!isNaN(accuracy)) {
+                totalAccuracy += accuracy;
+                accuracyCount++;
+            }
+        }
+    });
+    
+    document.getElementById('activeModels').textContent = activeCount;
+    document.getElementById('trainingModels').textContent = trainingCount;
+    document.getElementById('avgAccuracy').textContent = accuracyCount > 0 ? (totalAccuracy / accuracyCount).toFixed(1) + '%' : '0%';
+}
+
+function viewModel(modelId) {
+    showToast(`Visualizando modelo #${modelId}...`, 'info');
+    // Implementar visualização
+}
+
+function toggleModel(modelId) {
+    showToast(`Alternando status do modelo #${modelId}...`, 'info');
+    // Implementar toggle
+}
+
+function deleteModel(modelId) {
+    if (confirm('Tem certeza que deseja deletar este modelo? Esta ação não pode ser desfeita.')) {
+        showToast(`Deletando modelo #${modelId}...`, 'info');
+        // Implementar deleção
+    }
+}
+
+function trainNewModel() {
+    showToast('Iniciando treinamento de novo modelo...', 'info');
+    // Implementar novo modelo
+}
+</script>
+{% endblock %}
