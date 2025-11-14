@@ -43,7 +43,43 @@ class User(UserMixin, db.Model):
         """Verifica a senha com hash"""
         return check_password_hash(self.password_hash, password)
     
-    # ... (manter o resto dos métodos iguais) ...
+    def increment_login_attempts(self):
+        """Incrementa tentativas falhas e bloqueia após X tentativas."""
+        self.login_attempts += 1
+
+        # Bloqueia após 5 tentativas por 10 minutos
+        if self.login_attempts >= 5:
+            self.locked_until = datetime.utcnow() + timedelta(minutes=10)
+
+        db.session.commit()
+
+    def reset_login_attempts(self):
+        """Reseta tentativas falhas e desbloqueia o usuário."""
+        self.login_attempts = 0
+        self.locked_until = None
+        db.session.commit()
+    def is_locked(self):
+        """Retorna True se o usuário estiver bloqueado"""
+        if self.locked_until is None:
+            return False
+        return self.locked_until > datetime.utcnow()
+
+    def register_failed_login(self):
+        """Registra tentativa falha e bloqueia após 5 falhas"""
+        self.login_attempts += 1
+
+        # Após 5 tentativas falhas, bloqueia por 10 minutos
+        if self.login_attempts >= 5:
+            self.locked_until = datetime.utcnow() + timedelta(minutes=10)
+
+        db.session.commit()
+
+    def reset_failed_attempts(self):
+        """Limpa contagem e desbloqueia o usuário"""
+        self.login_attempts = 0
+        self.locked_until = None
+        db.session.commit()
+# ... (manter o resto dos métodos iguais) ...
 
 class Dataset(db.Model):
     __tablename__ = 'dataset'
