@@ -313,6 +313,7 @@ def openaq():
             location = request.form.get('location', '').strip()
             date_from = request.form.get('date_from')
             date_to = request.form.get('date_to')
+
             limit = int(request.form.get('limit', 500))
             
             if not all([location, date_from, date_to]):
@@ -376,14 +377,13 @@ def openaq():
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             clean_location = secure_filename(location.replace(' ', '_'))
             filename = f"openaq_{clean_location}_{timestamp}.csv"
-            file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
-           
-            # Garantir que é um caminho absoluto
-            if not os.path.isabs(file_path):
-                file_path = os.path.join(current_app.root_path, file_path)
 
-            # Garantir que o diretório existe
-            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            # 1. Pega o diretório de upload da configuração central.
+            upload_dir = current_app.config['UPLOAD_FOLDER']
+            # 2. Garante que o diretório exista.
+            os.makedirs(upload_dir, exist_ok=True)
+            # 3. Cria o caminho final de forma segura.
+            file_path = os.path.join(upload_dir, filename)
 
             df_processed.to_csv(file_path, index=False)
             
@@ -396,7 +396,7 @@ def openaq():
             dataset = Dataset(
                 filename=filename,
                 original_filename=filename,
-                file_path=file_path,
+                file_path=file_path, # Agora o file_path está correto
                 file_size=os.path.getsize(file_path),
                 rows_count=len(df_processed),
                 columns_count=len(df_processed.columns),
@@ -413,6 +413,7 @@ def openaq():
             logger.info(f"Processamento concluído: {len(df_processed)} registros gerados")
             flash(f'✅ Dados para {location} importados com sucesso! ({len(df_processed)} registros)', 'success')
             return render_template('external/openaq.html', dataset=dataset)
+            # --- FIM DA CORREÇÃO ---
             
         except Exception as e:
             logger.error(f"Erro ao processar dados OpenAQ: {e}", exc_info=True)
@@ -483,9 +484,14 @@ def inmet():
             # Salva dataset
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             filename = f"inmet_{station_code}_{timestamp}.csv"
-            file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
+
+            # 1. Pega o diretório de upload da configuração central.
+            upload_dir = current_app.config['UPLOAD_FOLDER']
+            # 2. Garante que o diretório exista.
+            os.makedirs(upload_dir, exist_ok=True)
+            # 3. Cria o caminho final de forma segura.
+            file_path = os.path.join(upload_dir, filename)
             
-            os.makedirs(os.path.dirname(file_path), exist_ok=True)
             df.to_csv(file_path, index=False)
             
             # Calcula métricas de qualidade
@@ -497,7 +503,7 @@ def inmet():
             dataset = Dataset(
                 filename=filename,
                 original_filename=filename,
-                file_path=file_path,
+                file_path=file_path, # Agora o file_path está correto
                 file_size=os.path.getsize(file_path),
                 rows_count=len(df),
                 columns_count=len(df.columns),
@@ -513,7 +519,8 @@ def inmet():
             
             flash(f'✅ Dados INMET para estação {station_code} importados com sucesso! ({len(df)} registros)', 'success')
             return redirect(url_for('main.datasets'))
-            
+            # --- FIM DA CORREÇÃO ---
+
         except Exception as e:
             logger.error(f"Erro ao processar dados INMET: {e}", exc_info=True)
             flash(f'Erro ao processar dados: {str(e)}', 'danger')
@@ -582,9 +589,14 @@ def inpe():
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             clean_state = secure_filename(state.replace(' ', '_'))
             filename = f"inpe_queimadas_{clean_state}_{timestamp}.csv"
-            file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
+
+            # 1. Pega o diretório de upload da configuração central.
+            upload_dir = current_app.config['UPLOAD_FOLDER']
+            # 2. Garante que o diretório exista.
+            os.makedirs(upload_dir, exist_ok=True)
+            # 3. Cria o caminho final de forma segura.
+            file_path = os.path.join(upload_dir, filename)
             
-            os.makedirs(os.path.dirname(file_path), exist_ok=True)
             df.to_csv(file_path, index=False, encoding='utf-8')
             
             # Calcula métricas de qualidade
@@ -596,7 +608,7 @@ def inpe():
             dataset = Dataset(
                 filename=filename,
                 original_filename=filename,
-                file_path=file_path,
+                file_path=file_path, # Agora o file_path está correto
                 file_size=os.path.getsize(file_path),
                 rows_count=len(df),
                 columns_count=len(df.columns),
@@ -612,6 +624,7 @@ def inpe():
             
             flash(f'✅ Dados de queimadas para {state} importados com sucesso! ({len(df)} registros)', 'success')
             return redirect(url_for('main.datasets'))
+            # --- FIM DA CORREÇÃO ---
 
         except Exception as e:
             logger.error(f"Erro ao buscar dados do INPE: {e}", exc_info=True)
@@ -619,6 +632,7 @@ def inpe():
             return redirect(url_for('external.inpe'))
 
     return render_template('external/inpe.html')
+
 
 @external_bp.route('/api/inmet/stations')
 @login_required

@@ -3,14 +3,14 @@ from datetime import timedelta
 from dotenv import load_dotenv
 
 load_dotenv()
-
+basedir = os.path.abspath(os.path.dirname(__file__))
 class Config:
     # Segurança - Chaves e Tokens
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production-2024'
     SECURITY_PASSWORD_SALT = os.environ.get('SECURITY_PASSWORD_SALT') or 'password-salt-change-in-production-2024'
     
     # Database - usando sua conexão
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'postgresql://postgres:senha123@localhost:5432/ecopredict_db2'
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///ecopredict.db'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {
         'pool_recycle': 300,
@@ -29,8 +29,7 @@ class Config:
     
     # File upload settings
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024
-    UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads')
-    ALLOWED_EXTENSIONS = {'csv', 'xlsx', 'xls'}
+    UPLOAD_FOLDER = os.path.join(basedir, '..', 'instance', 'uploads')
     
     # ML Model paths
     ML_MODELS_DIR = 'instance/ml_models'
