@@ -720,38 +720,57 @@ def add_air_quality_data():
     
     return render_template('add_air_quality_data.html', form=form)
 
+
 @main_bp.route('/api/dataset-features/<int:dataset_id>')
 @login_required
 def api_dataset_features(dataset_id):
-    """API para buscar features disponíveis em um dataset"""
+    """API para buscar features disponíveis em um dataset (versão aprimorada)"""
     try:
         dataset = Dataset.query.get_or_404(dataset_id)
         
-        # Verifica se o usuário tem acesso ao dataset
+        # 1. Valida o acesso do usuário
         if dataset.user_id != current_user.id and not dataset.is_public:
             return jsonify({'success': False, 'error': 'Acesso negado'}), 403
         
-        # Lê o dataset para extrair as colunas
+        # 2. Constrói o caminho absoluto do arquivo de forma segura
+        file_path = dataset.file_path
+        if not os.path.isabs(file_path):
+            # Se o caminho for relativo (ex: 'uploads/arquivo.csv'), une com a raiz da app
+            file_path = os.path.join(current_app.root_path, file_path)
+
+        # 3. Verifica se o arquivo existe antes de tentar ler
+        if not os.path.exists(file_path):
+            logger.error(f"Arquivo do dataset {dataset_id} não encontrado em: {file_path}")
+            return jsonify({
+                'success': False, 
+                'error': 'Arquivo do dataset não encontrado no servidor.'
+            }), 404
+
+        # 4. Lê o arquivo de forma inteligente (CSV ou Excel)
         try:
-            if dataset.filename.endswith('.csv'):
-                df = pd.read_csv(dataset.file_path, nrows=5)  # Lê apenas as primeiras linhas
+            filename_lower = dataset.filename.lower()
+            if filename_lower.endswith('.csv'):
+                df = pd.read_csv(file_path, nrows=5)
+            elif filename_lower.endswith(('.xlsx', '.xls')):
+                df = pd.read_excel(file_path, nrows=5)
             else:
-                df = pd.read_excel(dataset.file_path, nrows=5)
-            
+                # Tenta ler como CSV por padrão, mas avisa sobre formato desconhecido
+                df = pd.read_csv(file_path, nrows=5)
+                logger.warning(f"Formato de arquivo desconhecido para {dataset.filename}, tentando ler como CSV.")
+
             features = df.columns.tolist()
             
-            # Remove colunas não úteis para ML
+            # 5. Mantém a lógica de limpeza de colunas
             excluded_columns = [
                 'datetime', 'date', 'time', 'timestamp', 
                 'location', 'city', 'country', 'state', 
                 'latitude', 'longitude', 'unit', 'id',
-                'Unnamed: 0', 'index'
+                'Unnamed: 0', 'index', 'AQI_Category' # Adiciona AQI_Category à exclusão
             ]
             
-            # Filtra features
             features = [
                 f for f in features 
-                if (f not in excluded_columns and 
+                if (f.lower() not in [col.lower() for col in excluded_columns] and 
                     not f.startswith('Unnamed') and 
                     not f.startswith('_') and
                     str(f).strip() != '')
@@ -765,15 +784,15 @@ def api_dataset_features(dataset_id):
             })
             
         except Exception as e:
-            logger.error(f"Erro ao ler dataset {dataset_id}: {e}")
+            logger.error(f"Erro ao ler o arquivo do dataset {dataset_id}: {e}")
             return jsonify({
                 'success': False, 
-                'error': f'Erro ao ler arquivo: {str(e)}'
+                'error': f'Não foi possível ler o arquivo. Verifique se o formato (CSV/Excel) está correto.'
             }), 500
         
     except Exception as e:
-        logger.error(f"Erro ao buscar features do dataset {dataset_id}: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        logger.error(f"Erro geral ao buscar features do dataset {dataset_id}: {e}")
+        return jsonify({'success': False, 'error': 'Ocorreu um erro inesperado no servidor.'}), 500
     
 @main_bp.route('/datasets/<int:dataset_id>/export')
 @login_required
