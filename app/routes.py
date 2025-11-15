@@ -451,8 +451,8 @@ def upload_data():
                         description=form.description.data,
                         is_public=form.is_public.data,
                         user_id=current_user.id,
-                        data_quality_score=result['quality_score'],
-                        missing_data_percentage=result['missing_percentage']
+                        data_quality_score=float(result['quality_score']),
+                        missing_data_percentage=float(result['missing_percentage'])
                     )
                     
                     db.session.add(dataset)

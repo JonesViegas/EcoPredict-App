@@ -403,8 +403,8 @@ def openaq():
                 description=f"Dados de qualidade do ar para {location} de {date_from} a {date_to}",
                 is_public=False,
                 user_id=current_user.id,
-                data_quality_score=quality_score,
-                missing_data_percentage=missing_percentage
+                data_quality_score=float(quality_score),
+                missing_data_percentage=float(missing_percentage)
             )
             
             db.session.add(dataset)
@@ -504,8 +504,8 @@ def inmet():
                 description=f"Dados meteorológicos INMET estação {station_code} de {date_from} a {date_to}",
                 is_public=False,
                 user_id=current_user.id,
-                data_quality_score=quality_score,
-                missing_data_percentage=missing_percentage
+                data_quality_score=float(quality_score),
+                missing_data_percentage=float(missing_percentage)
             )
             
             db.session.add(dataset)
@@ -603,8 +603,8 @@ def inpe():
                 description=f"Dados de queimadas INPE {state} de {date_from} a {date_to}",
                 is_public=False,
                 user_id=current_user.id,
-                data_quality_score=quality_score,
-                missing_data_percentage=missing_percentage
+                data_quality_score=float(quality_score),
+                missing_data_percentage=float(missing_percentage)
             )
             
             db.session.add(dataset)
