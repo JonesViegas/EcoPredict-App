@@ -4,6 +4,7 @@ from werkzeug.utils import secure_filename
 from functools import wraps
 from flask import abort
 from flask_login import current_user
+from datetime import datetime
 
 # Decorator para rotas administrativas
 def admin_required(f):
@@ -22,40 +23,48 @@ def allowed_file(filename):
            filename.rsplit('.', 1)[1].lower() in allowed_extensions
 
 def process_uploaded_file(file, user_id, upload_folder):
-    """Processa o arquivo enviado e retorna informações"""
     try:
-        if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            
-            # Criar pasta do usuário se não existir
-            user_folder = os.path.join(upload_folder, str(user_id))
-            os.makedirs(user_folder, exist_ok=True)
-            
-            # Salvar arquivo
-            file_path = os.path.join(user_folder, filename)
-            file.save(file_path)
-            
-            # Ler arquivo para obter informações
-            if filename.endswith('.csv'):
-                df = pd.read_csv(file_path)
-            else:  # Excel files
-                df = pd.read_excel(file_path)
-            
-            file_info = {
-                'filename': filename,
-                'file_path': file_path,
-                'file_size': os.path.getsize(file_path),
-                'rows_count': len(df),
-                'columns_count': len(df.columns),
-                'columns': df.columns.tolist()
-            }
-            
-            return file_info
-        return None
-    except Exception as e:
-        print(f"Erro ao processar arquivo: {e}")
-        return None
+        # 1. Salvar o arquivo com segurança
+        original_filename = secure_filename(file.filename)
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"{user_id}_{timestamp}_{original_filename}"
+        
+        # Garante que o diretório de uploads exista
+        os.makedirs(upload_folder, exist_ok=True)
+        
+        file_path = os.path.join(upload_folder, filename)
+        file.save(file_path)
 
+        # 2. Ler e processar o arquivo com Pandas
+        df = pd.read_csv(file_path) # Ou pd.read_excel se você suportar
+
+        # 3. Calcular métricas de qualidade (exatamente como nas outras funções)
+        total_cells = df.size
+        missing_cells = df.isnull().sum().sum()
+        
+        missing_percentage = (missing_cells / total_cells) * 100 if total_cells > 0 else 0
+        quality_score = max(0, 100 - missing_percentage)
+
+        # 4. Retornar um dicionário em caso de SUCESSO
+        return {
+            'success': True,
+            'filename': filename,
+            'file_path': file_path,
+            'file_size': os.path.getsize(file_path),
+            'rows_count': len(df),
+            'columns_count': len(df.columns),
+            'quality_score': quality_score,
+            'missing_percentage': missing_percentage
+        }
+
+    except Exception as e:
+        # 5. Retornar um dicionário em caso de FALHA
+        # O log é importante para você saber o que deu errado
+        print(f"ERRO AO PROCESSAR UPLOAD: {e}") 
+        return {
+            'success': False,
+            'error': str(e)
+        }
 # Função para calcular uso de disco (para admin)
 def calculate_disk_usage():
     """Calcular uso de disco dos datasets"""
