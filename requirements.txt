@@ -1,6 +1,6 @@
 # Flask Framework
 Flask==2.3.3
-Flask-SQLAlchemy==3.0.5
+Flask-SQLAlchemy>=3.1.1 # ALTERADO: Versão atualizada para compatibilidade
 Flask-Migrate==4.0.5
 Flask-Login==0.6.3
 Flask-WTF==1.1.1
@@ -13,17 +13,17 @@ itsdangerous==2.1.2
 
 # Database
 psycopg2-binary==2.9.9
-SQLAlchemy==2.0.23
+SQLAlchemy>=2.0.29 # ALTERADO: Versão atualizada para compatibilidade com Python 3.13
 
 # Data Processing
 pandas>=2.2.3
-numpy>=2.0.0 # ALTERADO: Versão 1.26.4 não é compatível com Python 3.13
+numpy>=2.0.0
 openpyxl==3.1.2
 
 # Machine Learning
-scikit-learn>=1.5.0 # ALTERADO: Versão 1.3.2 não é compatível com Python 3.13
-xgboost>=2.0.3 # ALTERADO: Removida a versão fixa para melhor compatibilidade
-joblib>=1.3.2 # ALTERADO: Removida a versão fixa para melhor compatibilidade
+scikit-learn>=1.5.0
+xgboost>=2.0.3
+joblib>=1.3.2
 
 # Visualization & Maps
 plotly==5.18.0
@@ -37,7 +37,7 @@ python-dotenv==1.0.0
 
 # Parsing
 beautifulsoup4==4.12.2
-lxml>=4.9.4 # ALTERADO: Versão 4.9.3 não é compatível com Python 3.13
+lxml>=4.9.4
 
 # Build/Prod
 setuptools>=68.0.0
