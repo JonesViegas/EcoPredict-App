@@ -122,7 +122,7 @@ class MLModel(db.Model):
     
     # Feature information
     features_used = db.Column(db.Text)
-    target_variable = db.Column(db.String(100))
+    target_variable = db.Column(db.String(100), nullable=False)
     
     def set_features(self, features_list):
         self.features_used = json.dumps(features_list)
