@@ -437,7 +437,7 @@ def upload_data():
         if file and allowed_file(file.filename):
             try:
                 # Process uploaded file
-                result = process_uploaded_file(file, current_user.id)
+                result = process_uploaded_file(file, current_user.id, current_app.config['UPLOAD_FOLDER'])
                 
                 if result['success']:
                     # Create dataset record
