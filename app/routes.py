@@ -496,7 +496,7 @@ def datasets():
 def ml_models():
     form = MLModelForm()
     user_models = MLModel.query.filter_by(user_id=current_user.id).order_by(MLModel.created_at.desc()).all()
-    user_datasets = Dataset.query.filter_by(user_id=current_user.id).all()
+    user_datasets = Dataset.query.filter_by(user_id=current_user.id).order_by(Dataset.original_filename).all() # Adicionado order_by para consistência
     
     if form.validate_on_submit():
         dataset_id = request.form.get('dataset_id')
@@ -512,7 +512,7 @@ def ml_models():
             return render_template('ml_models.html', form=form, models=user_models, datasets=user_datasets)
         
         try:
-            # Train the model
+            # Chama a função de treinamento do modelo
             model_result = train_model(
                 dataset.file_path,
                 features,
@@ -524,17 +524,26 @@ def ml_models():
             )
             
             if model_result['success']:
-                # Create ML model record
+                # Garante a conversão para float nativo, tratando valores None para
+                # evitar erros com o banco de dados.
+                
+                accuracy = float(model_result['accuracy']) if model_result.get('accuracy') is not None else 0.0
+                precision = float(model_result.get('precision')) if model_result.get('precision') is not None else None
+                recall = float(model_result.get('recall')) if model_result.get('recall') is not None else None
+                f1_score = float(model_result.get('f1_score')) if model_result.get('f1_score') is not None else None
+                training_time = float(model_result['training_time']) if model_result.get('training_time') is not None else 0.0
+
+                # Cria o registro do modelo no banco de dados com os valores convertidos
                 ml_model = MLModel(
                     name=form.name.data,
                     model_type=form.model_type.data,
                     algorithm=form.algorithm.data,
                     model_path=model_result['model_path'],
-                    accuracy=model_result['accuracy'],
-                    precision=model_result.get('precision'),
-                    recall=model_result.get('recall'),
-                    f1_score=model_result.get('f1_score'),
-                    training_time=model_result['training_time'],
+                    accuracy=accuracy,
+                    precision=precision,
+                    recall=recall,
+                    f1_score=f1_score,
+                    training_time=training_time,
                     user_id=current_user.id,
                     target_variable=form.target_variable.data
                 )
@@ -543,20 +552,23 @@ def ml_models():
                 db.session.add(ml_model)
                 db.session.commit()
                 
-                # Set as active if accuracy > 85%
-                if model_result['accuracy'] > 0.85:
+                # A lógica para ativar o modelo e mostrar a mensagem flash agora usa
+                # a variável 'accuracy' já convertida e segura.
+                if accuracy > 0.85:
                     ml_model.is_active = True
                     db.session.commit()
-                    flash(f'Modelo treinado com sucesso! Precisão: {model_result["accuracy"]:.2%} - Modelo ativado automaticamente.', 'success')
+                    flash(f'Modelo treinado com sucesso! Precisão: {accuracy:.2%} - Modelo ativado automaticamente.', 'success')
                 else:
-                    flash(f'Modelo treinado com sucesso! Precisão: {model_result["accuracy"]:.2%} - Necessita melhorias para ativação.', 'warning')
+                    flash(f'Modelo treinado com sucesso! Precisão: {accuracy:.2%} - Necessita melhorias para ativação.', 'warning')
                     
                 return redirect(url_for('main.ml_models'))
             else:
                 flash(f'Erro no treinamento: {model_result["error"]}', 'danger')
                 
         except Exception as e:
-            flash(f'Erro ao treinar modelo: {str(e)}', 'danger')
+            # Captura qualquer outro erro inesperado durante o processo
+            logger.error(f"Erro inesperado ao treinar modelo: {e}", exc_info=True)
+            flash(f'Erro inesperado ao treinar modelo: {str(e)}', 'danger')
     
     return render_template('ml_models.html', form=form, models=user_models, datasets=user_datasets)
 
