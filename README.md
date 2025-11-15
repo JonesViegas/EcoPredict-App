@@ -367,13 +367,4 @@ Projeto sob licença **MIT**.
 Jones Carlos Viegas – Desenvolvimento Inicial
 GitHub: **(https://github.com/JonesViegas/EcoPredict-App)**
 
----
 
-Se quiser, posso gerar também:
-
-✅ Versão reduzida
-✅ Versão com sumário automático
-✅ README com imagens e GIFs
-✅ README profissional estilo template premium
-
-Só pedir!
