@@ -1295,12 +1295,13 @@ def get_data_from_user_datasets():
 @main_bp.route('/api/map/data')
 @login_required
 def api_map_data():
-    """API para dados do mapa em tempo real de fontes reais"""
+    """API para dados do mapa, baseada nos datasets do usuário (versão estável)."""
     try:
-        # Buscar dados reais atualizados
-        real_time_data = fetch_real_air_quality_data()
+        # 1. BUSCA DADOS DA FONTE CONFIÁVEL: OS DATASETS DO USUÁRIO
+        # Esta função já existe no seu código e lê os arquivos locais.
+        source_data = get_data_from_user_datasets()
         
-        # Combinar com coordenadas
+        # 2. MANTÉM A LISTA DE CIDADES E COORDENADAS PARA EXIBIÇÃO NO MAPA
         cities_coordinates = {
             'São Paulo': {'lat': -23.550, 'lon': -46.633},
             'Rio de Janeiro': {'lat': -22.906, 'lon': -43.172},
@@ -1314,12 +1315,14 @@ def api_map_data():
             'Porto Alegre': {'lat': -30.031, 'lon': -51.234}
         }
         
+        # 3. CONSTRÓI A RESPOSTA COMBINANDO OS DADOS DO USUÁRIO COM AS COORDENADAS
         response_data = {}
         for city, coords in cities_coordinates.items():
-            if city in real_time_data:
-                response_data[city] = {**coords, **real_time_data[city]}
+            if city in source_data:
+                # Se o usuário tem dados para esta cidade, use-os
+                response_data[city] = {**coords, **source_data[city]}
             else:
-                # Dados simulados apenas se não houver dados reais
+                # Caso contrário, mostra dados simulados/padrão
                 response_data[city] = {
                     **coords,
                     'aqi': 50,
@@ -1327,11 +1330,12 @@ def api_map_data():
                     'source': 'Simulado'
                 }
         
+        # 4. RETORNA O JSON PARA O FRONTEND
         return jsonify({
             'success': True,
             'data': response_data,
             'timestamp': datetime.now().isoformat(),
-            'sources_used': list(set([data.get('source', 'Unknown') for data in real_time_data.values()]))
+            'sources_used': ['User Datasets'] # A fonte de dados agora é clara e única
         })
         
     except Exception as e:
