@@ -228,36 +228,60 @@
             </div>
         </div>
     </div>
+    <!-- Modal de Detalhes do Modelo -->
+    <div class="modal fade" id="modelDetailsModal" tabindex="-1" aria-labelledby="modelDetailsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modelDetailsModalLabel">
+                        <i class="fas fa-brain me-2"></i>Detalhes do Modelo
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="modelDetailsContent">
+                    <!-- Conteúdo será carregado aqui via JavaScript -->
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Carregando...</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-// Estatísticas iniciais
+// Bloco de código para executar quando a página carregar
 document.addEventListener('DOMContentLoaded', function() {
     updateModelStats();
 });
 
+// Função para atualizar os cards de estatísticas no topo da página
 function updateModelStats() {
-    const rows = document.querySelectorAll('tbody tr');
+    const rows = document.querySelectorAll('tbody tr[id^="model-"]');
     let activeCount = 0;
-    let trainingCount = 0;
+    let trainingCount = 0; // Você pode implementar isso no futuro
     let totalAccuracy = 0;
     let accuracyCount = 0;
     
     rows.forEach(row => {
-        if (!row.id) return;
-        
-        // Contar ativos
-        if (row.querySelector('.badge.bg-success')) activeCount++;
-        
-        // Contar em treinamento
-        if (row.querySelector('.badge.bg-warning')) trainingCount++;
+        // Contar modelos ativos
+        const statusBadge = row.querySelector('.badge.bg-success');
+        if (statusBadge && statusBadge.textContent.trim() === 'Ativo') {
+            activeCount++;
+        }
         
         // Calcular precisão média
-        const accuracyText = row.cells[5].textContent.trim();
-        if (accuracyText.includes('%')) {
-            const accuracy = parseFloat(accuracyText.replace('%', ''));
+        const accuracyText = row.querySelector('.progress-bar + small');
+        if (accuracyText) {
+            const accuracy = parseFloat(accuracyText.textContent);
             if (!isNaN(accuracy)) {
                 totalAccuracy += accuracy;
                 accuracyCount++;
@@ -266,30 +290,239 @@ function updateModelStats() {
     });
     
     document.getElementById('activeModels').textContent = activeCount;
-    document.getElementById('trainingModels').textContent = trainingCount;
-    document.getElementById('avgAccuracy').textContent = accuracyCount > 0 ? (totalAccuracy / accuracyCount).toFixed(1) + '%' : '0%';
+    document.getElementById('trainingModels').textContent = trainingCount; // Ainda não implementado, fica como 0
+    document.getElementById('avgAccuracy').textContent = accuracyCount > 0 ? (totalAccuracy / accuracyCount).toFixed(1) + '%' : 'N/A';
 }
 
-function viewModel(modelId) {
-    showToast(`Visualizando modelo #${modelId}...`, 'info');
-    // Implementar visualização
-}
 
-function toggleModel(modelId) {
-    showToast(`Alternando status do modelo #${modelId}...`, 'info');
-    // Implementar toggle
-}
+// --- INÍCIO DA IMPLEMENTAÇÃO DAS AÇÕES ---
 
-function deleteModel(modelId) {
-    if (confirm('Tem certeza que deseja deletar este modelo? Esta ação não pode ser desfeita.')) {
+// AÇÃO 1: Deletar um Modelo
+async function deleteModel(modelId) {
+    if (!confirm('Tem certeza que deseja deletar este modelo? Esta ação não pode ser desfeita.')) {
+        return;
+    }
+    
+    try {
         showToast(`Deletando modelo #${modelId}...`, 'info');
-        // Implementar deleção
+        
+        // --- INÍCIO DA CORREÇÃO ---
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+        const response = await fetch(`/admin/api/delete_model/${modelId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken // Envia o token no cabeçalho
+            }
+        });
+        // --- FIM DA CORREÇÃO ---
+        
+        const result = await response.json();
+        
+        if (response.ok) { // Verifica se a resposta foi bem-sucedida (status 2xx)
+            showToast(result.message, 'success');
+            const row = document.getElementById(`model-${modelId}`);
+            if (row) row.remove();
+            updateModelStats();
+        } else {
+            throw new Error(result.error || 'Erro desconhecido');
+        }
+    } catch (error) {
+        console.error('Erro ao deletar modelo:', error);
+        showToast('Erro ao deletar modelo: ' + error.message, 'danger');
     }
 }
 
-function trainNewModel() {
-    showToast('Iniciando treinamento de novo modelo...', 'info');
-    // Implementar novo modelo
+// AÇÃO 2: Ativar ou Desativar um Modelo
+async function toggleModel(modelId) {
+    try {
+        showToast(`Alternando status do modelo #${modelId}...`, 'info');
+
+        // --- INÍCIO DA CORREÇÃO ---
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+        const response = await fetch(`/admin/api/toggle_model_status/${modelId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken // Envia o token no cabeçalho
+            }
+        });
+        // --- FIM DA CORREÇÃO ---
+
+        const result = await response.json();
+
+        if (response.ok) {
+            showToast(result.message, 'success');
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+        } else {
+            throw new Error(result.error || 'Erro desconhecido');
+        }
+    } catch (error) {
+        console.error('Erro ao alterar status do modelo:', error);
+        showToast('Erro ao alterar status: ' + error.message, 'danger');
+    }
 }
+// AÇÃO 3: Visualizar (exemplo, precisa de uma rota de API de detalhes)
+async function viewModel(modelId) {
+    const modal = new bootstrap.Modal(document.getElementById('modelDetailsModal'));
+    const modalContent = document.getElementById('modelDetailsContent');
+    
+    // Mostra o spinner de carregamento
+    modalContent.innerHTML = `
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Carregando...</span>
+            </div>
+            <p class="mt-2">Buscando detalhes do modelo...</p>
+        </div>
+    `;
+    modal.show();
+
+    try {
+        // Chama a nova rota da API que criamos
+        const response = await fetch(`/admin/api/model_details/${modelId}`);
+        const result = await response.json();
+
+        if (result.success) {
+            // Se a API retornar sucesso, chama a função para montar o HTML
+            displayModelDetails(result.details);
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        console.error('Erro ao buscar detalhes do modelo:', error);
+        modalContent.innerHTML = `
+            <div class="alert alert-danger">
+                <strong>Erro:</strong> Não foi possível carregar os detalhes do modelo.
+                <p class="mt-2 small">${error.message}</p>
+            </div>
+        `;
+    }
+}
+
+// Função auxiliar para montar o HTML dos detalhes no modal
+function displayModelDetails(details) {
+    const modalContent = document.getElementById('modelDetailsContent');
+
+    // Monta a lista de features usadas
+    let featuresHtml = '<p class="text-muted">Nenhuma feature registrada.</p>';
+    if (details.features_used && details.features_used.length > 0) {
+        featuresHtml = details.features_used.map(feature => 
+            `<span class="badge bg-secondary me-1 mb-1">${feature}</span>`
+        ).join('');
+    }
+
+    // Monta o HTML completo com os dados recebidos da API
+    modalContent.innerHTML = `
+        <h5>${details.name} <small class="text-muted">(ID: #${details.id})</small></h5>
+        <hr>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <strong>Usuário:</strong> ${details.user}<br>
+                <strong>Tipo:</strong> <span class="badge bg-secondary text-capitalize">${details.model_type}</span><br>
+                <strong>Algoritmo:</strong> <span class="badge bg-info text-capitalize">${details.algorithm}</span><br>
+                <strong>Criado em:</strong> ${details.created_at}
+            </div>
+            <div class="col-md-6">
+                <strong>Status:</strong> ${details.is_active ? '<span class="badge bg-success">Ativo</span>' : '<span class="badge bg-secondary">Inativo</span>'}<br>
+                <strong>Variável Alvo:</strong> <span class="badge bg-primary">${details.target_variable}</span><br>
+                <strong>Tempo de Treinamento:</strong> ${details.training_time}<br>
+                <strong>Caminho do Arquivo:</strong> <small class="text-muted">${details.model_path}</small>
+            </div>
+        </div>
+        <hr>
+        <h6>Métricas de Performance</h6>
+        <div class="row text-center my-3">
+            <div class="col-3">
+                <div class="p-2 bg-light rounded">
+                    <strong>Acurácia</strong>
+                    <h5 class="mb-0 mt-1">${details.accuracy}</h5>
+                </div>
+            </div>
+            <div class="col-3">
+                <div class="p-2 bg-light rounded">
+                    <strong>Precisão</strong>
+                    <h5 class="mb-0 mt-1">${details.precision}</h5>
+                </div>
+            </div>
+            <div class="col-3">
+                <div class="p-2 bg-light rounded">
+                    <strong>Recall</strong>
+                    <h5 class="mb-0 mt-1">${details.recall}</h5>
+                </div>
+            </div>
+            <div class="col-3">
+                <div class="p-2 bg-light rounded">
+                    <strong>F1-Score</strong>
+                    <h5 class="mb-0 mt-1">${details.f1_score}</h5>
+                </div>
+            </div>
+        </div>
+        <hr>
+        <h6>Features Utilizadas (${details.features_used.length})</h6>
+        <div>
+            ${featuresHtml}
+        </div>
+    `;
+}
+// AÇÃO 4: Treinar Novo Modelo (redireciona para a página de treinamento)
+function trainNewModel() {
+    window.location.href = "{{ url_for('main.ml_models') }}";
+}
+
+// --- FUNÇÃO AUXILIAR PARA NOTIFICAÇÕES (TOASTS) ---
+// (Você já deve ter algo parecido, mas esta é uma versão completa)
+function showToast(message, type = 'info') {
+    const toastContainer = document.getElementById('toast-container');
+    if (!toastContainer) {
+        const container = document.createElement('div');
+        container.id = 'toast-container';
+        container.className = 'toast-container position-fixed top-0 end-0 p-3';
+        container.style.zIndex = '1100'; // Garante que fique acima de outros elementos
+        document.body.appendChild(container);
+    }
+
+    const toastId = 'toast-' + Date.now();
+    const bgClass = {
+        'success': 'bg-success',
+        'danger': 'bg-danger',
+        'warning': 'bg-warning',
+        'info': 'bg-info'
+    }[type] || 'bg-secondary';
+
+    const iconClass = {
+        'success': 'fas fa-check-circle',
+        'danger': 'fas fa-exclamation-triangle',
+        'warning': 'fas fa-exclamation-circle',
+        'info': 'fas fa-info-circle'
+    }[type] || 'fas fa-bell';
+
+    const toastHTML = `
+        <div id="${toastId}" class="toast align-items-center text-white ${bgClass} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body">
+                    <i class="${iconClass} me-2"></i>
+                    ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('toast-container').insertAdjacentHTML('beforeend', toastHTML);
+    const toastEl = document.getElementById(toastId);
+    const toast = new bootstrap.Toast(toastEl, { delay: 5000 });
+    toast.show();
+    
+    toastEl.addEventListener('hidden.bs.toast', () => {
+        toastEl.remove();
+    });
+}
+
+
 </script>
 {% endblock %}

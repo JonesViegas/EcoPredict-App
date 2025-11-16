@@ -1508,28 +1508,6 @@ def admin_system():
     return render_template('admin/admin_system.html', system_info=system_info)
 
 # API Routes para ações administrativas
-@main_bp.route('/admin/api/toggle_user/<int:user_id>', methods=['POST'])
-@login_required
-@admin_required
-def toggle_user_status(user_id):
-    """Ativar/desativar usuário"""
-    try:
-        user = User.query.get_or_404(user_id)
-        user.is_active = not user.is_active
-        db.session.commit()
-        
-        action = "ativado" if user.is_active else "desativado"
-        logger.info(f"Usuário {user.email} {action} por admin {current_user.email}")
-        
-        return jsonify({
-            'success': True,
-            'message': f'Usuário {action} com sucesso',
-            'is_active': user.is_active
-        })
-    except Exception as e:
-        logger.error(f"Erro ao alterar status do usuário: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
 @main_bp.route('/admin/api/delete_dataset/<int:dataset_id>', methods=['DELETE'])
 @login_required
 @admin_required
@@ -1946,3 +1924,195 @@ def admin_toggle_maintenance():
             'success': False,
             'error': str(e)
         }), 500
+    
+@main_bp.route('/admin/api/delete_model/<int:model_id>', methods=['DELETE'])
+@login_required
+@admin_required
+def admin_delete_model(model_id):
+    """Deleta um modelo de ML (admin)."""
+    try:
+        model = MLModel.query.get_or_404(model_id)
+        
+        # Deletar o arquivo físico do modelo
+        if model.model_path and os.path.exists(model.model_path):
+            try:
+                os.remove(model.model_path)
+            except Exception as e:
+                logger.warning(f"Não foi possível deletar o arquivo do modelo {model_id}: {e}")
+
+        db.session.delete(model)
+        db.session.commit()
+        
+        logger.info(f"Modelo {model_id} deletado pelo admin {current_user.email}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Modelo de ML deletado com sucesso.'
+        })
+    except Exception as e:
+        logger.error(f"Erro ao deletar modelo de ML: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/admin/api/toggle_model_status/<int:model_id>', methods=['POST'])
+@login_required
+@admin_required
+def admin_toggle_model_status(model_id):
+    """Ativa ou desativa um modelo de ML (admin)."""
+    try:
+        model = MLModel.query.get_or_404(model_id)
+        model.is_active = not model.is_active
+        db.session.commit()
+        
+        status = "ativado" if model.is_active else "desativado"
+        logger.info(f"Modelo {model_id} {status} pelo admin {current_user.email}")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Modelo {status} com sucesso.',
+            'is_active': model.is_active
+        })
+    except Exception as e:
+        logger.error(f"Erro ao alterar status do modelo: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/admin/api/cleanup_datasets', methods=['POST'])
+@login_required
+@admin_required
+def admin_cleanup_datasets():
+    """Deleta todos os datasets do sistema (ação de limpeza)."""
+    try:
+        num_datasets = Dataset.query.count()
+
+        all_datasets = Dataset.query.all()
+        for dataset in all_datasets:
+            if dataset.file_path and os.path.exists(dataset.file_path):
+                try:
+                    os.remove(dataset.file_path)
+                except Exception as e:
+                    logger.warning(f"Não foi possível deletar o arquivo do dataset {dataset.id}: {e}")
+
+        Dataset.query.delete()
+        db.session.commit()
+
+        logger.warning(f"LIMPEZA GERAL: {num_datasets} datasets foram deletados pelo admin {current_user.email}")
+
+        return jsonify({
+            'success': True,
+            'message': f'{num_datasets} datasets foram removidos com sucesso.'
+        })
+    except Exception as e:
+        logger.error(f"Erro durante a limpeza de datasets: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/admin/api/model_details/<int:model_id>')
+@login_required
+@admin_required
+def admin_model_details(model_id):
+    """Retorna detalhes completos de um modelo de ML."""
+    try:
+        model = MLModel.query.get_or_404(model_id)
+        
+        # Formata os dados para serem enviados como JSON
+        details = {
+            'id': model.id,
+            'name': model.name,
+            'user': model.creator.username,
+            'model_type': model.model_type,
+            'algorithm': model.algorithm,
+            'model_path': model.model_path,
+            'accuracy': f"{model.accuracy * 100:.2f}%" if model.accuracy is not None else "N/A",
+            'precision': f"{model.precision * 100:.2f}%" if model.precision is not None else "N/A",
+            'recall': f"{model.recall * 100:.2f}%" if model.recall is not None else "N/A",
+            'f1_score': f"{model.f1_score * 100:.2f}%" if model.f1_score is not None else "N/A",
+            'training_time': f"{model.training_time:.2f} segundos" if model.training_time is not None else "N/A",
+            'is_active': model.is_active,
+            'created_at': model.created_at.strftime('%d/%m/%Y às %H:%M:%S'),
+            'features_used': model.get_features(), # Usa o método do modelo para obter a lista
+            'target_variable': model.target_variable
+        }
+        
+        return jsonify({'success': True, 'details': details})
+        
+    except Exception as e:
+        logger.error(f"Erro ao buscar detalhes do modelo {model_id}: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+@main_bp.route('/admin/api/user_details/<int:user_id>')
+@login_required
+@admin_required
+def admin_user_details(user_id):
+    """Retorna detalhes de um usuário para exibição no modal."""
+    try:
+        user = User.query.get_or_404(user_id)
+        
+        details = {
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'is_admin': user.is_admin,
+            'is_active': user.is_active,
+            'created_at': user.created_at.strftime('%d/%m/%Y %H:%M:%S'),
+            'last_login': user.last_login.strftime('%d/%m/%Y %H:%M:%S') if user.last_login else "Nunca",
+            'datasets_count': user.datasets.count(),
+            'models_count': user.models.count()
+        }
+        return jsonify({'success': True, 'details': details})
+    except Exception as e:
+        logger.error(f"Erro ao buscar detalhes do usuário {user_id}: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# --- Rota para deletar um usuário ---
+@main_bp.route('/admin/api/delete_user/<int:user_id>', methods=['DELETE'])
+@login_required
+@admin_required
+def admin_delete_user(user_id):
+    """Deleta um usuário (admin)."""
+    try:
+        # Impede que o admin se auto-delete
+        if user_id == current_user.id:
+            return jsonify({'success': False, 'error': 'Você não pode deletar sua própria conta.'}), 403
+
+        user = User.query.get_or_404(user_id)
+        
+        # Opcional: Reatribuir ou deletar dados do usuário (datasets, modelos)
+        # Por segurança, vamos apenas deletar o usuário por enquanto.
+        # Em um sistema real, você precisaria de uma lógica mais complexa aqui.
+        
+        db.session.delete(user)
+        db.session.commit()
+        
+        logger.warning(f"Usuário {user.email} (ID: {user_id}) foi DELETADO pelo admin {current_user.email}")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Usuário "{user.username}" deletado com sucesso.'
+        })
+    except Exception as e:
+        logger.error(f"Erro ao deletar usuário: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# --- Rota para ativar/desativar (você já deve ter, verifique se está assim) ---
+@main_bp.route('/admin/api/toggle_user/<int:user_id>', methods=['POST'])
+@login_required
+@admin_required
+def toggle_user_status(user_id):
+    """Ativar/desativar usuário."""
+    try:
+        # Impede que o admin se auto-desative
+        if user_id == current_user.id:
+            return jsonify({'success': False, 'error': 'Você não pode desativar sua própria conta.'}), 403
+
+        user = User.query.get_or_404(user_id)
+        user.is_active = not user.is_active
+        db.session.commit()
+        
+        action = "ativado" if user.is_active else "desativado"
+        logger.info(f"Usuário {user.email} {action} pelo admin {current_user.email}")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Usuário {action} com sucesso.',
+            'is_active': user.is_active
+        })
+    except Exception as e:
+        logger.error(f"Erro ao alterar status do usuário: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500

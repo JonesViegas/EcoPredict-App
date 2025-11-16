@@ -208,6 +208,7 @@
                                         <span class="badge bg-info">{{ user.datasets.count() }}</span>
                                     </td>
                                     <td>
+                                        <!-- === INÍCIO DA CORREÇÃO NA SEÇÃO DE AÇÕES === -->
                                         <div class="btn-group btn-group-sm">
                                             <button class="btn btn-outline-primary" onclick="viewUserDetails({{ user.id }})" title="Ver detalhes">
                                                 <i class="fas fa-eye"></i>
@@ -216,13 +217,19 @@
                                                 <i class="fas fa-edit"></i>
                                             </button>
                                             {% if user.id != current_user.id %}
-                                            <button class="btn btn-outline-{{ 'success' if not user.is_active else 'secondary' }}" 
+                                            <button class="btn btn-outline-{{ 'secondary' if user.is_active else 'success' }}" 
                                                     onclick="toggleUserStatus({{ user.id }})"
-                                                    title="{{ 'Ativar' if not user.is_active else 'Desativar' }}">
-                                                <i class="fas fa-{{ 'check' if not user.is_active else 'times' }}"></i>
+                                                    title="{{ 'Desativar' if user.is_active else 'Ativar' }}">
+                                                <i class="fas fa-{{ 'times' if user.is_active else 'check' }}"></i>
+                                            </button>
+                                            <button class="btn btn-outline-danger" 
+                                                    onclick="deleteUser({{ user.id }})"
+                                                    title="Deletar Usuário">
+                                                <i class="fas fa-trash"></i>
                                             </button>
                                             {% endif %}
                                         </div>
+                                        <!-- === FIM DA CORREÇÃO NA SEÇÃO DE AÇÕES === -->
                                     </td>
                                 </tr>
                                 {% else %}
@@ -264,162 +271,214 @@
 </div>
 
 <!-- Modal de Detalhes do Usuário -->
-<div class="modal fade" id="userDetailsModal">
+<div class="modal fade" id="userDetailsModal" tabindex="-1" aria-labelledby="userDetailsModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Detalhes do Usuário</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title" id="userDetailsModalLabel">
+                    <i class="fas fa-user-circle me-2"></i>Detalhes do Usuário
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body" id="userDetailsContent">
-                <!-- Conteúdo carregado via JavaScript -->
+                <!-- Conteúdo será carregado aqui via JavaScript -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
             </div>
         </div>
     </div>
 </div>
+
 {% endblock %}
 
 {% block extra_js %}
 <script>
-// Estatísticas iniciais
+// Bloco para executar quando a página carregar
 document.addEventListener('DOMContentLoaded', function() {
     updateUserStats();
 });
 
+// Função para atualizar os cards de estatísticas
 function updateUserStats() {
-    const rows = document.querySelectorAll('tbody tr');
+    const rows = document.querySelectorAll('tbody tr[id^="user-"]');
     let activeCount = 0;
     let adminCount = 0;
-    let newCount = 0;
     
     rows.forEach(row => {
-        if (!row.id) return;
+        const statusBadge = row.querySelector('.badge.bg-success');
+        if (statusBadge && statusBadge.textContent.trim() === 'Ativo') {
+            activeCount++;
+        }
         
-        // Contar ativos
-        if (row.querySelector('.badge.bg-success')) activeCount++;
-        
-        // Contar admins
-        if (row.querySelector('.badge.bg-purple')) adminCount++;
-        
-        // Contar novos (últimos 7 dias) - simplificado
-        const dateCell = row.cells[5].textContent.trim();
-        // Implementar lógica de data se necessário
+        const typeBadge = row.querySelector('.badge.bg-purple');
+        if (typeBadge && typeBadge.textContent.trim() === 'Administrador') {
+            adminCount++;
+        }
     });
     
     document.getElementById('activeUsersCount').textContent = activeCount;
     document.getElementById('adminUsersCount').textContent = adminCount;
-    document.getElementById('newUsersCount').textContent = newCount;
+    // A contagem de "Novos" (7 dias) precisaria vir do backend para ser precisa,
+    // então a deixamos como está por enquanto.
 }
 
-// Alternar status do usuário
-async function toggleUserStatus(userId) {
-    if (!confirm('Tem certeza que deseja alterar o status deste usuário?')) {
-        return;
-    }
+// --- IMPLEMENTAÇÃO DAS AÇÕES DOS BOTÕES ---
+
+// AÇÃO 1: Visualizar Detalhes do Usuário
+async function viewUserDetails(userId) {
+    const modal = new bootstrap.Modal(document.getElementById('userDetailsModal'));
+    const modalContent = document.getElementById('userDetailsContent');
     
+    modalContent.innerHTML = `<div class="text-center py-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>`;
+    modal.show();
+
     try {
-        const response = await fetch(`/admin/api/toggle_user/${userId}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            }
-        });
-        
+        const response = await fetch(`/admin/api/user_details/${userId}`);
         const result = await response.json();
-        
+
         if (result.success) {
-            showToast(result.message, 'success');
-            // Recarregar a página para refletir mudanças
-            setTimeout(() => location.reload(), 1000);
+            const details = result.details;
+            modalContent.innerHTML = `
+                <h5>${details.username} <small class="text-muted">(ID: #${details.id})</small></h5>
+                <hr>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <strong>Email:</strong> ${details.email}<br>
+                        <strong>Status:</strong> ${details.is_active ? '<span class="badge bg-success">Ativo</span>' : '<span class="badge bg-danger">Inativo</span>'}<br>
+                        <strong>Tipo:</strong> ${details.is_admin ? '<span class="badge bg-purple">Administrador</span>' : '<span class="badge bg-secondary">Usuário</span>'}<br>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Cadastro:</strong> ${details.created_at}<br>
+                        <strong>Último Login:</strong> ${details.last_login}<br>
+                        <strong>Datasets Enviados:</strong> <span class="badge bg-info">${details.datasets_count}</span><br>
+                        <strong>Modelos Treinados:</strong> <span class="badge bg-warning">${details.models_count}</span>
+                    </div>
+                </div>
+            `;
         } else {
             throw new Error(result.error);
         }
     } catch (error) {
-        console.error('Erro ao alterar status:', error);
-        showToast('Erro ao alterar status do usuário', 'danger');
+        modalContent.innerHTML = `<div class="alert alert-danger"><strong>Erro ao carregar detalhes:</strong> ${error.message}</div>`;
     }
 }
 
-// Ver detalhes do usuário
-async function viewUserDetails(userId) {
+// AÇÃO 2: Ativar/Desativar Usuário
+async function toggleUserStatus(userId) {
+    const button = document.querySelector(`#user-${userId} button[onclick*="toggleUserStatus"]`);
+    const icon = button.querySelector('i');
+    const originalClass = icon.className;
+    icon.className = "fas fa-sync fa-spin"; // Mostra spinner de carregamento
+
     try {
-        const response = await fetch(`/admin/api/user_details/${userId}`);
-        const user = await response.json();
-        
-        const modalContent = `
-            <div class="row">
-                <div class="col-md-6">
-                    <h6>Informações Básicas</h6>
-                    <table class="table table-sm">
-                        <tr>
-                            <td><strong>ID:</strong></td>
-                            <td>${user.id}</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Usuário:</strong></td>
-                            <td>${user.username}</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Email:</strong></td>
-                            <td>${user.email}</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Tipo:</strong></td>
-                            <td>${user.is_admin ? 'Administrador' : 'Usuário'}</td>
-                        </tr>
-                    </table>
-                </div>
-                <div class="col-md-6">
-                    <h6>Estatísticas</h6>
-                    <table class="table table-sm">
-                        <tr>
-                            <td><strong>Datasets:</strong></td>
-                            <td>${user.datasets_count || 0}</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Modelos ML:</strong></td>
-                            <td>${user.models_count || 0}</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Último Login:</strong></td>
-                            <td>${user.last_login || 'Nunca'}</td>
-                        </tr>
-                    </table>
-                </div>
-            </div>
-            <div class="mt-3">
-                <h6>Atividade Recente</h6>
-                <p class="text-muted">Funcionalidade em desenvolvimento...</p>
-            </div>
-        `;
-        
-        document.getElementById('userDetailsContent').innerHTML = modalContent;
-        new bootstrap.Modal(document.getElementById('userDetailsModal')).show();
-        
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        const response = await fetch(`/admin/api/toggle_user/${userId}`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken }
+        });
+        const result = await response.json();
+
+        if (response.ok) {
+            showToast(result.message, 'success');
+            // Atualiza a interface dinamicamente
+            const statusBadge = document.querySelector(`#user-${userId} td:nth-child(4) > span`);
+            if (result.is_active) {
+                statusBadge.className = 'badge bg-success';
+                statusBadge.textContent = 'Ativo';
+                button.title = 'Desativar';
+                button.classList.remove('btn-outline-success');
+                button.classList.add('btn-outline-secondary');
+                icon.className = 'fas fa-times';
+            } else {
+                statusBadge.className = 'badge bg-danger';
+                statusBadge.textContent = 'Inativo';
+                button.title = 'Ativar';
+                button.classList.remove('btn-outline-secondary');
+                button.classList.add('btn-outline-success');
+                icon.className = 'fas fa-check';
+            }
+            updateUserStats(); // Atualiza os contadores
+        } else {
+            throw new Error(result.error);
+        }
     } catch (error) {
-        console.error('Erro ao carregar detalhes:', error);
-        showToast('Erro ao carregar detalhes do usuário', 'danger');
+        showToast(error.message, 'danger');
+        icon.className = originalClass; // Restaura ícone original em caso de erro
     }
 }
 
+// AÇÃO 3: Deletar Usuário
+async function deleteUser(userId) {
+    if (!confirm(`Tem certeza que deseja DELETAR o usuário #${userId}? Esta ação é irreversível.`)) {
+        return;
+    }
+
+    try {
+        showToast(`Deletando usuário #${userId}...`, 'info');
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        const response = await fetch(`/admin/api/delete_user/${userId}`, {
+            method: 'DELETE',
+            headers: { 'X-CSRFToken': csrfToken }
+        });
+        const result = await response.json();
+
+        if (response.ok) {
+            showToast(result.message, 'success');
+            document.getElementById(`user-${userId}`).remove();
+            updateUserStats();
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        showToast(error.message, 'danger');
+    }
+}
+
+// AÇÃO 4: Editar (Placeholder)
 function editUser(userId) {
-    showToast('Funcionalidade de edição em desenvolvimento', 'info');
+    showToast(`Funcionalidade de edição para o usuário #${userId} em desenvolvimento.`, 'info');
 }
 
-function exportUsers() {
-    showToast('Exportando lista de usuários...', 'info');
-    // Implementar exportação
-}
-
+// Outras funções (filtros, exportação - placeholders)
 function applyFilters() {
-    showToast('Aplicando filtros...', 'info');
-    // Implementar filtros
+    showToast('Funcionalidade de filtros em desenvolvimento.', 'info');
+}
+function exportUsers() {
+    showToast('Funcionalidade de exportação em desenvolvimento.', 'info');
 }
 
-// Função de toast
+// Função de Toast (garanta que ela exista)
 function showToast(message, type = 'info') {
-    // Sua função toast existente
-    console.log(`[${type}] ${message}`);
+    const toastContainer = document.getElementById('toast-container');
+    if (!toastContainer) {
+        const container = document.createElement('div');
+        container.id = 'toast-container';
+        container.className = 'toast-container position-fixed top-0 end-0 p-3';
+        container.style.zIndex = '1100';
+        document.body.appendChild(container);
+    }
+    const toastId = 'toast-' + Date.now();
+    const bgClass = `bg-${type}`;
+    const iconClass = {
+        'success': 'fas fa-check-circle',
+        'danger': 'fas fa-exclamation-triangle',
+        'warning': 'fas fa-exclamation-circle',
+        'info': 'fas fa-info-circle'
+    }[type] || 'fas fa-bell';
+    const toastHTML = `
+        <div id="${toastId}" class="toast align-items-center text-white ${bgClass} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body"><i class="${iconClass} me-2"></i>${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    `;
+    document.getElementById('toast-container').insertAdjacentHTML('beforeend', toastHTML);
+    const toastEl = document.getElementById(toastId);
+    const toast = new bootstrap.Toast(toastEl, { delay: 5000 });
+    toast.show();
+    toastEl.addEventListener('hidden.bs.toast', () => { toastEl.remove(); });
 }
 </script>
 
@@ -429,17 +488,11 @@ function showToast(message, type = 'info') {
     height: 32px;
     font-size: 14px;
 }
-
 .bg-purple {
     background-color: #6f42c1 !important;
 }
-
 .table td {
     vertical-align: middle;
-}
-
-.btn-group-sm > .btn {
-    padding: 0.25rem 0.5rem;
 }
 </style>
 {% endblock %}

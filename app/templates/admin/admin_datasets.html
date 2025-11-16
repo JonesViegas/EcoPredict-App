@@ -303,5 +303,32 @@ function cleanupDatasets() {
         // Implementar limpeza
     }
 }
+async function cleanupAllDatasets() {
+    if (!confirm('ATENÇÃO: Esta ação irá deletar TODOS os datasets do sistema permanentemente. Deseja continuar?')) {
+        return;
+    }
+    
+    try {
+        showToast('Iniciando limpeza de todos os datasets...', 'warning');
+        
+        const response = await fetch('/admin/api/cleanup_datasets', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast(result.message, 'success');
+            // Recarrega a página para mostrar a tabela vazia
+            setTimeout(() => location.reload(), 2000);
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        console.error('Erro na limpeza de datasets:', error);
+        showToast('Erro ao limpar datasets: ' + error.message, 'danger');
+    }
+}
 </script>
 {% endblock %}
