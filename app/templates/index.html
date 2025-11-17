@@ -1,6 +1,50 @@
 {% extends "base.html" %}
 {% block title %}EcoPredict - Monitoramento Inteligente da Qualidade do Ar{% endblock %}
 
+{% block extra_css %}
+<!-- Leaflet.js CSS para o mapa interativo -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+    /* Estilo para o mapa na página inicial */
+    #public-map {
+        border-radius: 15px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        z-index: 1; /* Garante que o mapa fique acima de outros elementos */
+    }
+
+    /* Estilos para os marcadores do mapa (AQI) */
+    .aqi-marker-public {
+        width: 35px;
+        height: 35px;
+        border-radius: 50%;
+        border: 3px solid rgba(255, 255, 255, 0.8);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 13px;
+        color: white;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+    }
+    
+    /* Cores dos marcadores */
+    .aqi-good { background-color: #28a745; }
+    .aqi-moderate { background-color: #ffc107; }
+    .aqi-poor { background-color: #fd7e14; }
+    .aqi-very-poor { background-color: #dc3545; }
+
+    .feature-step-card {
+        transition: transform 0.3s, box-shadow 0.3s;
+    }
+    .feature-step-card:hover {
+        transform: translateY(-10px);
+        box-shadow: 0 15px 30px rgba(0,0,0,0.15);
+    }
+</style>
+{% endblock %}
+
+
 {% block public_content %}
 <!-- Hero Section -->
 <section class="hero-section">
@@ -13,17 +57,16 @@
                 </h1>
                 <h2 class="mb-4">Monitoramento Inteligente da Qualidade do Ar</h2>
                 <p class="lead mb-5">
-                    Utilizando machine learning para prever e analisar a qualidade do ar 
-                    em tempo real. Proteja o meio ambiente com tecnologia avançada.
+                    Transforme dados ambientais em previsões precisas. Nossa plataforma utiliza Inteligência Artificial para analisar, visualizar e prever a qualidade do ar, capacitando decisões mais rápidas e eficazes para um futuro mais saudável.
                 </p>
                 <div class="d-flex gap-3 flex-wrap">
                     <a href="{{ url_for('auth.register') }}" class="btn btn-success btn-lg">
                         <i class="fas fa-user-plus me-2"></i>
-                        Cadastrar
+                        Começar Agora (Grátis)
                     </a>
                     <a href="{{ url_for('auth.login') }}" class="btn btn-outline-light btn-lg">
                         <i class="fas fa-sign-in-alt me-2"></i>
-                        Entrar
+                        Já Tenho Conta
                     </a>
                 </div>
             </div>
@@ -31,57 +74,76 @@
     </div>
 </section>
 
-<!-- Features Section -->
+<!-- Mapa Interativo de Demonstração -->
 <section class="py-5 bg-light">
     <div class="container">
         <div class="row text-center mb-5">
             <div class="col">
-                <h2 class="fw-bold text-dark">Funcionalidades Principais</h2>
-                <p class="lead">Tudo que você precisa para monitorar e prever a qualidade do ar</p>
+                <h2 class="fw-bold text-dark">Explore a Qualidade do Ar no Brasil</h2>
+                <p class="lead">Passe o mouse sobre as capitais para ver o Índice de Qualidade do Ar (AQI) previsto em tempo real.</p>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-12">
+                <!-- O container do mapa -->
+                <div id="public-map" style="height: 500px; width: 100%;"></div>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<!-- Como Funciona Section -->
+<section class="py-5">
+    <div class="container">
+        <div class="row text-center mb-5">
+            <div class="col">
+                <h2 class="fw-bold text-dark">Como o EcoPredict Transforma Dados em Ação</h2>
+                <p class="lead">Uma plataforma completa, da coleta de dados à visualização de insights.</p>
             </div>
         </div>
         
         <div class="row g-4">
-            <div class="col-md-4">
-                <div class="card card-custom h-100 text-center">
+            <!-- Passo 1 -->
+            <div class="col-lg-4 d-flex align-items-stretch">
+                <div class="card card-custom h-100 text-center feature-step-card">
                     <div class="card-body p-4">
                         <div class="feature-icon mb-3">
-                            <i class="fas fa-map-marked-alt fa-3x text-primary"></i>
+                            <i class="fas fa-database fa-3x text-primary"></i>
                         </div>
-                        <h4 class="card-title">Mapa Interativo</h4>
+                        <h4 class="card-title">1. Colete e Integre</h4>
                         <p class="card-text">
-                            Visualize dados de qualidade do ar em tempo real através 
-                            de um mapa interativo com dados de múltiplas fontes.
+                            Faça upload de seus próprios datasets (CSV, Excel) ou importe dados atualizados de fontes confiáveis como **INMET** (clima), **INPE** (queimadas) e **OpenAQ** (qualidade do ar global) com apenas alguns cliques.
                         </p>
                     </div>
                 </div>
             </div>
             
-            <div class="col-md-4">
-                <div class="card card-custom h-100 text-center">
+            <!-- Passo 2 -->
+            <div class="col-lg-4 d-flex align-items-stretch">
+                <div class="card card-custom h-100 text-center feature-step-card">
                     <div class="card-body p-4">
                         <div class="feature-icon mb-3">
                             <i class="fas fa-brain fa-3x text-success"></i>
                         </div>
-                        <h4 class="card-title">Machine Learning</h4>
+                        <h4 class="card-title">2. Analise com Inteligência Artificial</h4>
                         <p class="card-text">
-                            Modelos preditivos com mais de 85% de precisão para 
-                            prever tendências futuras da qualidade do ar.
+                            Utilize nossa interface simplificada para treinar modelos de Machine Learning. Escolha suas variáveis, defina seu alvo e deixe que nossos algoritmos de **Regressão e Classificação** criem previsões com mais de 85% de precisão.
                         </p>
                     </div>
                 </div>
             </div>
-            
-            <div class="col-md-4">
-                <div class="card card-custom h-100 text-center">
+
+            <!-- Passo 3 -->
+            <div class="col-lg-4 d-flex align-items-stretch">
+                <div class="card card-custom h-100 text-center feature-step-card">
                     <div class="card-body p-4">
                         <div class="feature-icon mb-3">
-                            <i class="fas fa-chart-line fa-3x text-warning"></i>
+                            <i class="fas fa-chart-pie fa-3x text-warning"></i>
                         </div>
-                        <h4 class="card-title">Análises Avançadas</h4>
+                        <h4 class="card-title">3. Visualize e Decida</h4>
                         <p class="card-text">
-                            Relatórios detalhados, correlações entre variáveis 
-                            e alertas em tempo real sobre condições críticas.
+                            Transforme números complexos em dashboards intuitivos, mapas interativos e relatórios detalhados. Monitore tendências, identifique correlações e receba alertas para tomar decisões baseadas em evidências.
                         </p>
                     </div>
                 </div>
@@ -91,14 +153,14 @@
 </section>
 
 <!-- Stats Section -->
-<section class="py-5">
+<section class="py-5 bg-light">
     <div class="container">
         <div class="row g-4">
             <div class="col-md-3 col-6 text-center">
                 <div class="stat-card bg-white p-4 rounded-3">
                     <i class="fas fa-database fa-2x text-primary mb-2"></i>
                     <h3 class="fw-bold text-dark">1M+</h3>
-                    <p class="text-muted mb-0">Dados Coletados</p>
+                    <p class="text-muted mb-0">Dados Processados</p>
                 </div>
             </div>
             <div class="col-md-3 col-6 text-center">
@@ -110,9 +172,9 @@
             </div>
             <div class="col-md-3 col-6 text-center">
                 <div class="stat-card bg-white p-4 rounded-3">
-                    <i class="fas fa-map-marker-alt fa-2x text-warning mb-2"></i>
-                    <h3 class="fw-bold text-dark">50+</h3>
-                    <p class="text-muted mb-0">Locais Monitorados</p>
+                    <i class="fas fa-cogs fa-2x text-warning mb-2"></i>
+                    <h3 class="fw-bold text-dark">3 Fontes</h3>
+                    <p class="text-muted mb-0">de Dados Integradas</p>
                 </div>
             </div>
             <div class="col-md-3 col-6 text-center">
@@ -126,16 +188,36 @@
     </div>
 </section>
 
+<!-- User Manual Section -->
+<section class="py-5">
+    <div class="container text-center">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <i class="fas fa-book-open fa-3x text-primary mb-3"></i>
+                <h2 class="fw-bold text-dark">Quer saber mais?</h2>
+                <p class="lead mb-4">
+                    Preparamos um guia completo com o passo a passo de todas as funcionalidades da plataforma. Explore todo o potencial do EcoPredict.
+                </p>
+                <a href="{{ url_for('static', filename='pdf/Manual do Usuário - Ecopredict.pdf') }}" target="_blank" class="btn btn-outline-primary btn-lg">
+                    <i class="fas fa-file-alt me-2"></i>
+                    Visualizar o Manual do Usuário
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+
+
 <!-- CTA Section -->
 <section class="py-5 bg-dark text-white">
     <div class="container text-center">
-        <h2 class="fw-bold mb-4">Pronto para começar?</h2>
+        <h2 class="fw-bold mb-4">Pronto para começar a prever o futuro?</h2>
         <p class="lead mb-4">
             Junte-se à nossa plataforma e contribua para um monitoramento ambiental mais inteligente.
         </p>
         <a href="{{ url_for('auth.register') }}" class="btn btn-success btn-lg">
             <i class="fas fa-rocket me-2"></i>
-            Começar Agora
+            Criar Minha Conta Gratuita
         </a>
     </div>
 </section>
@@ -147,4 +229,67 @@
         </p>
     </div>
 </footer>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Leaflet.js JS para o mapa interativo -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 1. Inicializa o mapa
+    const map = L.map('public-map').setView([-15.7801, -47.9292], 4);
+
+    // 2. Adiciona a camada de mapa (tiles) do OpenStreetMap
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    // 3. Dados de exemplo para as capitais
+    const capitalsData = [
+        { name: 'São Paulo', coords: [-23.5505, -46.6333], aqi: 75 },
+        { name: 'Rio de Janeiro', coords: [-22.9068, -43.1729], aqi: 88 },
+        { name: 'Belo Horizonte', coords: [-19.9167, -43.9345], aqi: 65 },
+        { name: 'Brasília', coords: [-15.7942, -47.8825], aqi: 45 },
+        { name: 'Salvador', coords: [-12.9777, -38.5016], aqi: 52 },
+        { name: 'Fortaleza', coords: [-3.7319, -38.5267], aqi: 48 },
+        { name: 'Manaus', coords: [-3.1190, -60.0217], aqi: 35 },
+        { name: 'Curitiba', coords: [-25.4284, -49.2733], aqi: 55 },
+        { name: 'Recife', coords: [-8.0476, -34.8770], aqi: 70 },
+        { name: 'Porto Alegre', coords: [-30.0346, -51.2177], aqi: 60 },
+        { name: 'Cuiabá', coords: [-15.6010, -56.0979], aqi: 110 },
+        { name: 'Belém', coords: [-1.4558, -48.5024], aqi: 42 },
+        { name: 'Goiânia', coords: [-16.6869, -49.2648], aqi: 95 }
+    ];
+
+    // 4. Funções auxiliares para cor e descrição do AQI
+    function getAqiInfo(aqi) {
+        if (aqi <= 50) return { colorClass: 'aqi-good', description: 'Bom' };
+        if (aqi <= 100) return { colorClass: 'aqi-moderate', description: 'Moderado' };
+        if (aqi <= 150) return { colorClass: 'aqi-poor', description: 'Ruim' };
+        return { colorClass: 'aqi-very-poor', description: 'Muito Ruim' };
+    }
+
+    // 5. Adiciona os marcadores ao mapa
+    capitalsData.forEach(capital => {
+        const aqiInfo = getAqiInfo(capital.aqi);
+
+        const customIcon = L.divIcon({
+            className: 'custom-div-icon',
+            html: `<div class="aqi-marker-public ${aqiInfo.colorClass}">${capital.aqi}</div>`,
+            iconSize: [35, 35],
+            iconAnchor: [17, 17]
+        });
+
+        const marker = L.marker(capital.coords, { icon: customIcon }).addTo(map);
+
+        // Adiciona o tooltip que aparece ao passar o mouse
+        marker.bindTooltip(`
+            <div style="text-align: center;">
+                <strong>${capital.name}</strong><br>
+                AQI: ${capital.aqi} (${aqiInfo.description})
+            </div>
+        `);
+    });
+});
+</script>
 {% endblock %}
