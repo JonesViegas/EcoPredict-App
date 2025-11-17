@@ -3,7 +3,12 @@ from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 import json
-import secrets
+import secrets # Módulo para gerar tokens seguros
+
+# O user_loader é essencial para o Flask-Login
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
 
 class User(UserMixin, db.Model):
     __tablename__ = 'user'
@@ -12,27 +17,33 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(64), unique=True, nullable=False, index=True)
     email = db.Column(db.String(120), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(256), nullable=False)
-    is_admin = db.Column(db.Boolean, default=False)
-    is_active = db.Column(db.Boolean, default=True)
+    is_admin = db.Column(db.Boolean, default=False, nullable=False)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    last_login = db.Column(db.DateTime)
+    last_login = db.Column(db.DateTime, nullable=True)
+    
+    # --- Campos para Segurança de Login ---
     login_attempts = db.Column(db.Integer, default=0)
-    locked_until = db.Column(db.DateTime)
+    locked_until = db.Column(db.DateTime, nullable=True)
     
-    # Password reset fields
-    reset_token = db.Column(db.String(100), unique=True, index=True)
-    token_expiration = db.Column(db.DateTime)
+    # --- Campos para Reset de Senha ---
+    reset_token = db.Column(db.String(100), unique=True, index=True, nullable=True)
+    token_expiration = db.Column(db.DateTime, nullable=True)
     
-    # Relationships - ATUALIZADAS para as tabelas existentes
+    # --- Relacionamentos com Cascade Delete ---
     datasets = db.relationship('Dataset', backref='uploader', lazy='dynamic', cascade='all, delete-orphan')
     ml_models = db.relationship('MLModel', backref='creator', lazy='dynamic', cascade='all, delete-orphan')
-    alerts = db.relationship('Alert', backref='user', lazy='dynamic')  # Usando 'Alert' em vez de 'AirQualityAlert'
-    system_logs = db.relationship('SystemLog', backref='user', lazy='dynamic')
-    
+    alerts = db.relationship('Alert', backref='user', lazy='dynamic', cascade='all, delete-orphan')
+    system_logs = db.relationship('SystemLog', backref='user', lazy='dynamic', cascade='all, delete-orphan')
+
+    def __repr__(self):
+        return f'<User {self.username}>'
+
+    # --- Métodos de Gerenciamento de Senha ---
     def set_password(self, password):
-        """Hash e salva a senha"""
+        """Gera e armazena o hash da senha de forma segura."""
         if len(password) < 8:
-            raise ValueError("A senha deve ter pelo menos 8 caracteres")
+            raise ValueError("A senha deve ter pelo menos 8 caracteres.")
         self.password_hash = generate_password_hash(
             password, 
             method='pbkdf2:sha256', 
@@ -40,46 +51,51 @@ class User(UserMixin, db.Model):
         )
     
     def check_password(self, password):
-        """Verifica a senha com hash"""
+        """Verifica se a senha fornecida corresponde ao hash armazenado."""
         return check_password_hash(self.password_hash, password)
-    
-    def increment_login_attempts(self):
-        """Incrementa tentativas falhas e bloqueia após X tentativas."""
-        self.login_attempts += 1
 
-        # Bloqueia após 5 tentativas por 10 minutos
-        if self.login_attempts >= 5:
-            self.locked_until = datetime.utcnow() + timedelta(minutes=10)
-
-        db.session.commit()
-
-    def reset_login_attempts(self):
-        """Reseta tentativas falhas e desbloqueia o usuário."""
-        self.login_attempts = 0
-        self.locked_until = None
-        db.session.commit()
+    # --- Métodos de Segurança de Login (Bloqueio de Conta) ---
     def is_locked(self):
-        """Retorna True se o usuário estiver bloqueado"""
+        """Retorna True se a conta do usuário estiver temporariamente bloqueada."""
         if self.locked_until is None:
             return False
         return self.locked_until > datetime.utcnow()
 
-    def register_failed_login(self):
-        """Registra tentativa falha e bloqueia após 5 falhas"""
-        self.login_attempts += 1
+    def increment_login_attempts(self):
+        """Incrementa as tentativas de login falhas e bloqueia a conta se necessário."""
+        if self.is_locked(): # Não faz nada se já estiver bloqueado
+            return
 
-        # Após 5 tentativas falhas, bloqueia por 10 minutos
+        self.login_attempts += 1
+        # Bloqueia a conta por 10 minutos após 5 tentativas falhas
         if self.login_attempts >= 5:
             self.locked_until = datetime.utcnow() + timedelta(minutes=10)
-
+        
         db.session.commit()
 
-    def reset_failed_attempts(self):
-        """Limpa contagem e desbloqueia o usuário"""
-        self.login_attempts = 0
-        self.locked_until = None
+    def reset_login_attempts(self):
+        """Reseta a contagem de tentativas de login falhas e desbloqueia a conta."""
+        if self.login_attempts > 0 or self.locked_until is not None:
+            self.login_attempts = 0
+            self.locked_until = None
+            db.session.commit()
+
+    # --- Métodos de Reset de Senha ---
+    def get_reset_token(self, expires_in=1800):
+        """Gera um token seguro para reset de senha com tempo de expiração."""
+        self.reset_token = secrets.token_urlsafe(32)
+        self.token_expiration = datetime.utcnow() + timedelta(seconds=expires_in)
         db.session.commit()
-# ... (manter o resto dos métodos iguais) ...
+        return self.reset_token
+
+    @staticmethod
+    def verify_reset_token(token):
+        """Verifica se um token de reset é válido e não expirou."""
+        user = User.query.filter_by(reset_token=token).first()
+        if user and user.token_expiration > datetime.utcnow():
+            return user
+        return None
+
 
 class Dataset(db.Model):
     __tablename__ = 'dataset'
