@@ -222,7 +222,8 @@
                     </h5>
                 </div>
                 <div class="card-body">
-                    <canvas id="datasetsChart" height="250"></canvas>
+                    <!-- ALTURA DO GRÁFICO ALTERADA AQUI -->
+                    <canvas id="datasetsChart" height="200"></canvas>
                 </div>
             </div>
         </div>
@@ -237,7 +238,8 @@
                     </h5>
                 </div>
                 <div class="card-body">
-                    <canvas id="modelsChart" height="250"></canvas>
+                    <!-- ALTURA DO GRÁFICO ALTERADA AQUI -->
+                    <canvas id="modelsChart" height="200"></canvas>
                 </div>
             </div>
         </div>
@@ -465,6 +467,7 @@ document.addEventListener('DOMContentLoaded', function() {
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: false, // Adicionado para melhor controle
                 plugins: {
                     legend: {
                         position: 'bottom'
@@ -490,9 +493,15 @@ document.addEventListener('DOMContentLoaded', function() {
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: false, // Adicionado para melhor controle
                 scales: {
                     y: {
                         beginAtZero: true
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false // Legenda é redundante aqui
                     }
                 }
             }
@@ -534,14 +543,18 @@ function updateGaugeColor(selector, value) {
     const element = document.querySelector(selector);
     const icon = element.querySelector('i');
     
+    // Remove classes de cor existentes antes de adicionar a nova
+    icon.classList.remove('text-danger', 'text-warning', 'text-success', 'text-primary', 'text-info');
+
     if (value > 80) {
-        icon.className = icon.className.replace(/text-\w+/, 'text-danger');
+        icon.classList.add('text-danger');
     } else if (value > 60) {
-        icon.className = icon.className.replace(/text-\w+/, 'text-warning');
+        icon.classList.add('text-warning');
     } else {
-        icon.className = icon.className.replace(/text-\w+/, 'text-success');
+        icon.classList.add('text-success');
     }
 }
+
 // Funções para o painel admin principal
 async function toggleMaintenanceModeGlobal() {
     const checkbox = document.getElementById('maintenanceModeGlobal');
@@ -573,38 +586,18 @@ async function toggleMaintenanceModeGlobal() {
     }
 }
 
-// Reutilizar as mesmas funções de ações
-async function backupSystem() {
-    // mesma implementação do admin_system.html
+// Funções de Ações Rápidas (placeholders)
+function showToast(message, type = 'info') {
+    // Função para mostrar notificações (você pode implementar um sistema de toast mais robusto)
+    alert(`[${type.toUpperCase()}] ${message}`);
 }
 
-async function clearSystemCache() {
-    // mesma implementação do admin_system.html  
-}
-
-async function optimizeDatabase() {
-    // mesma implementação do admin_system.html
-}
-
-async function restartSystem() {
-    // mesma implementação do admin_system.html
-}
-
-async function downloadLogs() {
-    // mesma implementação do admin_system.html
-}
-
-async function clearLogs() {
-    // mesma implementação do admin_system.html
-}
-
-
-function clearCache() {
-    if (confirm('Tem certeza que deseja limpar o cache do sistema?')) {
-        showToast('Limpando cache...', 'info');
-        // Implementar limpeza de cache
-    }
-}
+function backupSystem() { if (confirm('Criar um backup do sistema agora?')) showToast('Iniciando backup...', 'info'); }
+function clearSystemCache() { if (confirm('Limpar o cache do sistema? Isso pode desconectar usuários.')) showToast('Limpando cache...', 'info'); }
+function optimizeDatabase() { if (confirm('Otimizar o banco de dados? O sistema pode ficar lento durante o processo.')) showToast('Otimizando banco de dados...', 'info'); }
+function restartSystem() { if (confirm('TEM CERTEZA que deseja reiniciar o sistema?')) showToast('Enviando comando de reinicialização...', 'warning'); }
+function downloadLogs() { window.location.href = '/admin/api/download_logs'; }
+function clearLogs() { if (confirm('Limpar logs antigos do sistema?')) showToast('Limpando logs...', 'info'); }
 
 // Atualizar a cada 30 segundos
 setInterval(refreshStats, 30000);

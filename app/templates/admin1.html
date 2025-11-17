@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+{% block title %}Painel Admin - EcoPredict{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* 
+     *  CSS para controlar o tamanho dos gráficos
+     *  Este container irá limitar a altura do canvas do gráfico.
+    */
+    .chart-container {
+        position: relative;
+        height: 320px; /* Altura fixa para os gráficos. Ajuste se necessário. */
+        width: 100%;
+    }
+
+    /* Garante que o card de estatísticas em tempo real seja responsivo */
+    .stat-realtime-card {
+        border-left: 4px solid #6c757d;
+        padding: 1rem;
+        background-color: #f8f9fa;
+        border-radius: .5rem;
+    }
+</style>
+{% endblock %}
+
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Título do Painel -->
+    <div class="row mb-4 align-items-center">
+        <div class="col">
+            <h1 class="h3 mb-0">
+                <i class="fas fa-shield-alt me-2"></i>
+                Painel Administrativo
+            </h1>
+            <p class="text-muted">Gerencie e monitore o sistema EcoPredict</p>
+        </div>
+        <div class="col-auto">
+             <button class="btn btn-outline-primary" onclick="window.location.reload();">
+                <i class="fas fa-sync-alt me-1"></i>Atualizar
+            </button>
+        </div>
+    </div>
+
+    <!-- Estatísticas do Sistema em Tempo Real -->
+    <div class="card card-custom mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0"><i class="fas fa-heartbeat me-2"></i>Estatísticas do Sistema - Tempo Real</h5>
+        </div>
+        <div class="card-body">
+            <div class="row text-center g-3">
+                <div class="col-lg col-md-4 col-6">
+                    <div class="stat-realtime-card">
+                        <h6 class="text-muted mb-1">CPU</h6>
+                        <h4 class="mb-0 fw-bold">57.8%</h4>
+                    </div>
+                </div>
+                <div class="col-lg col-md-4 col-6">
+                    <div class="stat-realtime-card">
+                        <h6 class="text-muted mb-1">Memória</h6>
+                        <h4 class="mb-0 fw-bold">59.7%</h4>
+                    </div>
+                </div>
+                <div class="col-lg col-md-4 col-6">
+                    <div class="stat-realtime-card">
+                        <h6 class="text-muted mb-1">Disco</h6>
+                        <h4 class="mb-0 fw-bold">3.9%</h4>
+                    </div>
+                </div>
+                <div class="col-lg col-md-6 col-6">
+                    <div class="stat-realtime-card">
+                        <h6 class="text-muted mb-1">Usuários Ativos</h6>
+                        <h4 class="mb-0 fw-bold">{{ total_users|default(5) }}</h4>
+                    </div>
+                </div>
+                <div class="col-lg col-md-6 col-12">
+                     <div class="stat-realtime-card">
+                        <h6 class="text-muted mb-1">Alertas Ativos</h6>
+                        <h4 class="mb-0 fw-bold text-danger">0</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Linha Principal com Gráficos e Listas -->
+    <div class="row g-4">
+        <!-- Coluna da Esquerda (Gráfico de Pizza + Logs) -->
+        <div class="col-lg-7">
+            <!-- Card do Gráfico de Distribuição de Datasets -->
+            <div class="card card-custom mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-pie me-2"></i>
+                        Distribuição de Datasets
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Container com altura controlada -->
+                    <div class="chart-container">
+                        <canvas id="datasetsDistributionChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card dos Logs Recentes -->
+            <div class="card card-custom">
+                <div class="card-header">
+                    <h5 class="card-title mb-0"><i class="fas fa-clipboard-list me-2"></i>Logs Recentes do Sistema</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive" style="max-height: 250px;">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Data/Hora</th>
+                                    <th>Nível</th>
+                                    <th>Módulo</th>
+                                    <th>Mensagem</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Exemplo de Logs - no sistema real, viria do backend -->
+                                <tr>
+                                    <td><small>17/11/2025 09:00</small></td>
+                                    <td><span class="badge bg-info">INFO</span></td>
+                                    <td>auth</td>
+                                    <td>Usuário 'admin' logado com sucesso.</td>
+                                </tr>
+                                <tr>
+                                    <td><small>17/11/2025 08:55</small></td>
+                                    <td><span class="badge bg-success">SUCCESS</span></td>
+                                    <td>ml_models</td>
+                                    <td>Modelo 'Previsão SP' treinado com precisão de 92.1%.</td>
+                                </tr>
+                                <tr>
+                                    <td><small>17/11/2025 08:50</small></td>
+                                    <td><span class="badge bg-warning">WARNING</span></td>
+                                    <td>upload</td>
+                                    <td>Arquivo 'dados.zip' com formato não suportado foi rejeitado.</td>
+                                </tr>
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted pt-3">
+                                        Nenhum log mais antigo encontrado.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Coluna da Direita (Gráfico de Barras + Alertas) -->
+        <div class="col-lg-5">
+            <!-- Card do Gráfico de Status dos Modelos ML -->
+            <div class="card card-custom mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>
+                        Status dos Modelos ML
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Container com altura controlada -->
+                    <div class="chart-container">
+                        <canvas id="mlModelsStatusChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card de Alertas Recentes -->
+            <div class="card card-custom">
+                <div class="card-header">
+                    <h5 class="card-title mb-0"><i class="fas fa-bell me-2"></i>Alertas Recentes</h5>
+                </div>
+                <div class="card-body text-center text-muted" style="min-height: 200px;">
+                    <div class="d-flex flex-column justify-content-center h-100">
+                         <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                        <p class="mb-0">Nenhum alerta recente.</p>
+                        <small>O sistema está operando normalmente.</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+{% block extra_js %}
+<!-- Chart.js já está incluído no seu base.html, então só precisamos do script -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // 1. Gráfico de Distribuição de Datasets (Pizza/Donut)
+    const datasetsCtx = document.getElementById('datasetsDistributionChart');
+    if (datasetsCtx) {
+        new Chart(datasetsCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Privados', 'Públicos'],
+                datasets: [{
+                    label: 'Datasets',
+                    data: [24, 2], // Dados de exemplo: 24 privados, 2 públicos
+                    backgroundColor: [
+                        '#6c757d', // Cinza para Privados
+                        '#28a745'  // Verde para Públicos
+                    ],
+                    borderColor: '#ffffff',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false, // Essencial para o container de altura funcionar
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                    }
+                },
+                cutout: '70%' // Cria o efeito "donut"
+            }
+        });
+    }
+
+    // 2. Gráfico de Status dos Modelos ML (Barras)
+    const modelsCtx = document.getElementById('mlModelsStatusChart');
+    if (modelsCtx) {
+        new Chart(modelsCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Ativos', 'Em Treinamento', 'Com Erro'],
+                datasets: [{
+                    label: 'Modelos ML',
+                    data: [2, 0, 0], // Dados de exemplo: 2 ativos, 0 treinando, 0 com erro
+                    backgroundColor: [
+                        '#28a745', // Verde para Ativos
+                        '#ffc107', // Amarelo para Em Treinamento
+                        '#dc3545'  // Vermelho para Erro
+                    ],
+                    borderRadius: 5
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false, // Essencial para o container de altura funcionar
+                plugins: {
+                    legend: {
+                        display: false // Esconde a legenda, pois as cores são autoexplicativas
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        // Sugere um número máximo de passos no eixo Y para não ficar muito poluído
+                        ticks: {
+                            stepSize: 1 
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+});
+</script>
+{% endblock %}
