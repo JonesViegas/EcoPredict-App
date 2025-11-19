@@ -181,8 +181,8 @@
                                         <span class="badge bg-danger">Inativo</span>
                                         {% endif %}
                                         
-                                        {% if user.locked_until and user.locked_until > datetime.utcnow() %}
-                                        <span class="badge bg-warning">Bloqueado</span>
+                                        {% if user.is_locked() %}
+                                        <span class="badge bg-danger">Bloqueado</span>
                                         {% endif %}
                                     </td>
                                     <td>

@@ -29,6 +29,7 @@ function showToast(message, type = 'info') {
 async function performAdminAction(url, options = {}, confirmMessage, successMessage) {
     if (confirmMessage && !confirm(confirmMessage)) return;
     showToast(options.processingMessage || 'Processando sua solicitação...', 'info');
+    
     const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
     try {
         const response = await fetch(url, {

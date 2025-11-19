@@ -364,6 +364,8 @@
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+<script src="{{ url_for('static', filename='js/admin_actions.js') }}"></script>
+
 <script>
 // Gráficos
 document.addEventListener('DOMContentLoaded', function() {
