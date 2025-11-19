@@ -3,7 +3,7 @@ from flask import current_app
 from flask_login import login_required, current_user
 from app.utils import admin_required, allowed_file, process_uploaded_file 
 from app import db
-from app.models import User, Dataset, MLModel, Alert, SystemLog, AirQualityData 
+from app.models import User, Dataset, MLModel, Alert, SystemLog, AirQualityData, log_system_event
 from app.forms import DatasetUploadForm, MLModelForm, AirQualityDataForm
 from app.utils import allowed_file, process_uploaded_file
 from app.ml_models import train_model, make_prediction, evaluate_model

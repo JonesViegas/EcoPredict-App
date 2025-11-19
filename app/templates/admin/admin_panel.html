@@ -354,93 +354,8 @@
         </div>
 
         <!-- Ações Rápidas -->
-        <div class="col-12">
-            <div class="card card-custom">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">
-                        <i class="fas fa-bolt me-2"></i>
-                        Ações Rápidas
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <div class="row g-3">
-                        <div class="col-md-2 col-6">
-                            <a href="{{ url_for('main.admin_users') }}" class="btn btn-outline-primary w-100 h-100 py-3">
-                                <i class="fas fa-user-cog fa-2x mb-2"></i><br>
-                                <small>Gerenciar Usuários</small>
-                            </a>
-                        </div>
-                        <div class="col-md-2 col-6">
-                            <a href="{{ url_for('main.admin_datasets') }}" class="btn btn-outline-success w-100 h-100 py-3">
-                                <i class="fas fa-database fa-2x mb-2"></i><br>
-                                <small>Gerenciar Datasets</small>
-                            </a>
-                        </div>
-                        <div class="col-md-2 col-6">
-                            <a href="{{ url_for('main.admin_models') }}" class="btn btn-outline-warning w-100 h-100 py-3">
-                                <i class="fas fa-brain fa-2x mb-2"></i><br>
-                                <small>Modelos ML</small>
-                            </a>
-                        </div>
-                        <div class="col-md-2 col-6">
-                            <a href="{{ url_for('main.admin_system') }}" class="btn btn-outline-info w-100 h-100 py-3">
-                                <i class="fas fa-server fa-2x mb-2"></i><br>
-                                <small>Configurações</small>
-                            </a>
-                        </div>
-                        <div class="col-md-2 col-6">
-                            <button class="btn btn-outline-secondary w-100 h-100 py-3" onclick="backupSystem()">
-                                <i class="fas fa-download fa-2x mb-2"></i><br>
-                                <small>Backup</small>
-                            </button>
-                        </div>
-                        <div class="col-md-2 col-6">
-                            <button class="btn btn-outline-dark w-100 h-100 py-3" onclick="clearSystemCache()">
-                                <i class="fas fa-broom fa-2x mb-2"></i><br>
-                                <small>Limpar Cache</small>
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <!-- Segunda linha de ações -->
-                    <div class="row g-3 mt-2">
-                        <div class="col-md-2 col-6">
-                            <button class="btn btn-outline-success w-100 h-100 py-3" onclick="optimizeDatabase()">
-                                <i class="fas fa-database fa-2x mb-2"></i><br>
-                                <small>Otimizar BD</small>
-                            </button>
-                        </div>
-                        <div class="col-md-2 col-6">
-                            <button class="btn btn-outline-danger w-100 h-100 py-3" onclick="restartSystem()">
-                                <i class="fas fa-redo fa-2x mb-2"></i><br>
-                                <small>Reiniciar</small>
-                            </button>
-                        </div>
-                        <div class="col-md-2 col-6">
-                            <button class="btn btn-outline-primary w-100 h-100 py-3" onclick="downloadLogs()">
-                                <i class="fas fa-file-download fa-2x mb-2"></i><br>
-                                <small>Download Logs</small>
-                            </button>
-                        </div>
-                        <div class="col-md-2 col-6">
-                            <button class="btn btn-outline-warning w-100 h-100 py-3" onclick="clearLogs()">
-                                <i class="fas fa-trash fa-2x mb-2"></i><br>
-                                <small>Limpar Logs</small>
-                            </button>
-                        </div>
-                        <div class="col-md-4 col-12">
-                            <div class="d-flex align-items-center justify-content-center h-100 py-3">
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" id="maintenanceModeGlobal" onchange="toggleMaintenanceModeGlobal()">
-                                    <label class="form-check-label" for="maintenanceModeGlobal">
-                                        <i class="fas fa-tools me-2"></i>Modo Manutenção
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+        <div class="col-12 mt-4">
+            {% include 'admin/_admin_actions.html' %}
         </div>
     </div>
 </div>
@@ -587,18 +502,157 @@ async function toggleMaintenanceModeGlobal() {
 }
 
 // Funções de Ações Rápidas (placeholders)
+
 function showToast(message, type = 'info') {
-    // Função para mostrar notificações (você pode implementar um sistema de toast mais robusto)
-    alert(`[${type.toUpperCase()}] ${message}`);
+    const toastContainer = document.querySelector('.toast-container');
+    if (!toastContainer) return;
+
+    const toastId = 'toast-' + Date.now();
+    const bg_color = {
+        success: 'bg-success',
+        danger: 'bg-danger',
+        warning: 'bg-warning',
+        info: 'bg-info'
+    }[type] || 'bg-secondary';
+
+    const icon = {
+        success: 'fa-check-circle',
+        danger: 'fa-exclamation-triangle',
+        warning: 'fa-exclamation-circle',
+        info: 'fa-info-circle'
+    }[type] || 'fa-bell';
+
+    const toastHTML = `
+        <div id="${toastId}" class="toast align-items-center text-white ${bg_color} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body">
+                    <i class="fas ${icon} me-2"></i>
+                    ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    `;
+    
+    toastContainer.insertAdjacentHTML('beforeend', toastHTML);
+    
+    const toastElement = document.getElementById(toastId);
+    const toast = new bootstrap.Toast(toastElement, { delay: 5000 });
+    toast.show();
+    
+    toastElement.addEventListener('hidden.bs.toast', () => toastElement.remove());
 }
+async function backupSystem() {
+    if (!confirm('Deseja criar um backup completo do sistema agora? Esta ação pode levar alguns instantes.')) {
+        return;
+    }
 
-function backupSystem() { if (confirm('Criar um backup do sistema agora?')) showToast('Iniciando backup...', 'info'); }
-function clearSystemCache() { if (confirm('Limpar o cache do sistema? Isso pode desconectar usuários.')) showToast('Limpando cache...', 'info'); }
-function optimizeDatabase() { if (confirm('Otimizar o banco de dados? O sistema pode ficar lento durante o processo.')) showToast('Otimizando banco de dados...', 'info'); }
-function restartSystem() { if (confirm('TEM CERTEZA que deseja reiniciar o sistema?')) showToast('Enviando comando de reinicialização...', 'warning'); }
-function downloadLogs() { window.location.href = '/admin/api/download_logs'; }
-function clearLogs() { if (confirm('Limpar logs antigos do sistema?')) showToast('Limpando logs...', 'info'); }
+    showToast('Iniciando backup...', 'info');
 
+    try {
+        const response = await fetch('/admin/api/backup', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                // Se você usa CSRF, adicione o token aqui
+            }
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+            // Sucesso! A API respondeu que o backup foi criado.
+            showToast(result.message, 'success');
+        } else {
+            // Erro! A API retornou um problema.
+            throw new Error(result.error || 'Ocorreu um erro desconhecido no servidor.');
+        }
+    } catch (error) {
+        console.error('Erro ao tentar criar backup:', error);
+        showToast('Falha ao criar backup: ' + error.message, 'danger');
+    }
+}
+// --- FUNÇÃO GENÉRICA PARA CHAMAR A API DE ADMIN ---
+    async function performAdminAction(url, options = {}, confirmMessage, successMessage) {
+        if (confirmMessage && !confirm(confirmMessage)) {
+            return;
+        }
+
+        showToast(options.processingMessage || 'Processando sua solicitação...', 'info');
+
+        try {
+            const response = await fetch(url, {
+                method: options.method || 'POST',
+                headers: { 'Content-Type': 'application/json', ...options.headers },
+                body: options.body ? JSON.stringify(options.body) : null
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                showToast(result.message || successMessage, 'success');
+                return result; // Retorna o resultado para uso posterior, se necessário
+            } else {
+                throw new Error(result.error || 'Ocorreu um erro desconhecido no servidor.');
+            }
+        } catch (error) {
+            console.error(`Erro ao executar a ação em ${url}:`, error);
+            showToast(`Falha na operação: ${error.message}`, 'danger');
+        }
+    }
+
+    // --- FUNÇÕES DE AÇÃO CONECTADAS AO BACKEND ---
+
+    function backupSystem() {
+        performAdminAction(
+            '/admin/api/backup', 
+            { processingMessage: 'Iniciando backup...' },
+            'Deseja criar um backup completo do sistema agora?',
+            'Backup criado com sucesso!'
+        );
+    }
+
+    function clearSystemCache() {
+        performAdminAction(
+            '/admin/api/clear_cache',
+            { processingMessage: 'Limpando cache...' },
+            'Limpar o cache do sistema? Isso pode desconectar usuários ativos.',
+            'Cache do sistema limpo com sucesso!'
+        );
+    }
+
+    function optimizeDatabase() {
+        performAdminAction(
+            '/admin/api/optimize_db',
+            { processingMessage: 'Otimizando banco de dados...' },
+            'Otimizar o banco de dados? A operação pode tornar o sistema lento temporariamente.',
+            'Banco de dados otimizado com sucesso!'
+        );
+    }
+
+    function restartSystem() {
+        performAdminAction(
+            '/admin/api/restart_system',
+            { processingMessage: 'Enviando comando de reinicialização...' },
+            'TEM CERTEZA que deseja reiniciar o sistema? A aplicação ficará indisponível por alguns instantes.',
+            'Sistema será reiniciado em breve.'
+        );
+    }
+
+    function downloadLogs() {
+        showToast('Preparando download dos logs...', 'info');
+        // Esta é a forma correta para iniciar um download via GET
+        window.location.href = '/admin/api/download_logs';
+    }
+
+    function clearLogs() {
+        performAdminAction(
+            '/admin/api/clear_old_logs',
+            { processingMessage: 'Limpando logs antigos...' },
+            'Limpar logs com mais de 30 dias? Esta ação não pode ser desfeita.',
+            'Logs antigos removidos com sucesso!'
+        );
+    }
 // Atualizar a cada 30 segundos
 setInterval(refreshStats, 30000);
 </script>
