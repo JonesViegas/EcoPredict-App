@@ -1,43 +1,51 @@
 {% extends "base.html" %}
 {% block title %}Gerenciar Usuários - EcoPredict{% endblock %}
 
+{% block extra_css %}
+<style>
+.avatar-sm {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+}
+.bg-purple {
+    background-color: #6f42c1 !important;
+}
+.table td {
+    vertical-align: middle;
+}
+.btn-group-sm .btn {
+    padding: .2rem .5rem;
+    font-size: .75rem;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid py-4">
     <!-- Header -->
     <div class="row mb-4">
         <div class="col">
-            <h1 class="h3 mb-0">
-                <i class="fas fa-users-cog me-2"></i>
-                Gerenciar Usuários
-            </h1>
+            <h1 class="h3 mb-0"><i class="fas fa-users-cog me-2"></i>Gerenciar Usuários</h1>
             <p class="text-muted">Administre os usuários do sistema</p>
         </div>
         <div class="col-auto">
             <div class="btn-group">
-                <a href="{{ url_for('main.admin_panel') }}" class="btn btn-outline-secondary">
-                    <i class="fas fa-arrow-left me-1"></i>Voltar
-                </a>
-                <button class="btn btn-outline-primary" onclick="exportUsers()">
-                    <i class="fas fa-download me-1"></i>Exportar
-                </button>
+                <a href="{{ url_for('main.admin_panel') }}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left me-1"></i>Voltar</a>
+                <button class="btn btn-outline-primary" onclick="exportUsers()"><i class="fas fa-download me-1"></i>Exportar</button>
             </div>
         </div>
     </div>
 
-    <!-- Filtros e Busca -->
+    <!-- Filtros e Busca (Funcionalidade de exemplo) -->
     <div class="row mb-4">
         <div class="col-12">
             <div class="card">
                 <div class="card-body">
-                    <div class="row g-3">
-                        <div class="col-md-4">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-5">
                             <label class="form-label">Buscar Usuário</label>
-                            <div class="input-group">
-                                <input type="text" class="form-control" placeholder="Nome, email..." id="searchUsers">
-                                <button class="btn btn-outline-secondary" type="button">
-                                    <i class="fas fa-search"></i>
-                                </button>
-                            </div>
+                            <input type="text" class="form-control" placeholder="Nome, email..." id="searchUsers">
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Status</label>
@@ -48,83 +56,16 @@
                                 <option value="locked">Bloqueados</option>
                             </select>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-2">
                             <label class="form-label">Tipo</label>
                             <select class="form-select" id="typeFilter">
                                 <option value="all">Todos</option>
-                                <option value="admin">Administradores</option>
-                                <option value="user">Usuários</option>
+                                <option value="admin">Admin</option>
+                                <option value="user">Usuário</option>
                             </select>
                         </div>
                         <div class="col-md-2">
-                            <label class="form-label">&nbsp;</label>
-                            <button class="btn btn-primary w-100" onclick="applyFilters()">
-                                <i class="fas fa-filter me-1"></i>Filtrar
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Estatísticas Rápidas -->
-    <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="card bg-primary text-white">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <div class="flex-grow-1">
-                            <h4 class="card-title mb-0">{{ users.total }}</h4>
-                            <p class="card-text opacity-75 mb-0">Total Usuários</p>
-                        </div>
-                        <div class="flex-shrink-0">
-                            <i class="fas fa-users fa-2x opacity-75"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card bg-success text-white">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <div class="flex-grow-1">
-                            <h4 class="card-title mb-0" id="activeUsersCount">0</h4>
-                            <p class="card-text opacity-75 mb-0">Usuários Ativos</p>
-                        </div>
-                        <div class="flex-shrink-0">
-                            <i class="fas fa-user-check fa-2x opacity-75"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card bg-warning text-white">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <div class="flex-grow-1">
-                            <h4 class="card-title mb-0" id="adminUsersCount">0</h4>
-                            <p class="card-text opacity-75 mb-0">Administradores</p>
-                        </div>
-                        <div class="flex-shrink-0">
-                            <i class="fas fa-crown fa-2x opacity-75"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card bg-info text-white">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <div class="flex-grow-1">
-                            <h4 class="card-title mb-0" id="newUsersCount">0</h4>
-                            <p class="card-text opacity-75 mb-0">Novos (7 dias)</p>
-                        </div>
-                        <div class="flex-shrink-0">
-                            <i class="fas fa-user-plus fa-2x opacity-75"></i>
+                            <button class="btn btn-primary w-100" onclick="applyFilters()"><i class="fas fa-filter me-1"></i>Filtrar</button>
                         </div>
                     </div>
                 </div>
@@ -145,7 +86,6 @@
                         <table class="table table-hover mb-0">
                             <thead class="table-light">
                                 <tr>
-                                    <th>ID</th>
                                     <th>Usuário</th>
                                     <th>Email</th>
                                     <th>Status</th>
@@ -159,7 +99,6 @@
                             <tbody>
                                 {% for user in users.items %}
                                 <tr id="user-{{ user.id }}">
-                                    <td><small class="text-muted">#{{ user.id }}</small></td>
                                     <td>
                                         <div class="d-flex align-items-center">
                                             <div class="avatar-sm bg-primary rounded-circle d-flex align-items-center justify-content-center me-2">
@@ -167,76 +106,67 @@
                                             </div>
                                             <div>
                                                 <strong>{{ user.username }}</strong>
-                                                {% if user.locked_until and user.locked_until > datetime.utcnow() %}
-                                                <i class="fas fa-lock text-danger ms-1" title="Conta bloqueada"></i>
+                                                {# CORREÇÃO: Usando o método is_locked() para mostrar o ícone #}
+                                                {% if user.is_locked() %}
+                                                <i class="fas fa-lock text-danger ms-1" title="Conta bloqueada temporariamente"></i>
                                                 {% endif %}
                                             </div>
                                         </div>
                                     </td>
                                     <td>{{ user.email }}</td>
                                     <td>
-                                        {% if user.is_active %}
-                                        <span class="badge bg-success">Ativo</span>
-                                        {% else %}
-                                        <span class="badge bg-danger">Inativo</span>
-                                        {% endif %}
-                                        
+                                        {# CORREÇÃO: Lógica de status unificada #}
                                         {% if user.is_locked() %}
-                                        <span class="badge bg-danger">Bloqueado</span>
+                                            <span class="badge bg-danger">Bloqueado</span>
+                                        {% elif user.is_active %}
+                                            <span class="badge bg-success">Ativo</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Inativo</span>
                                         {% endif %}
                                     </td>
                                     <td>
                                         {% if user.is_admin %}
-                                        <span class="badge bg-purple">Administrador</span>
+                                            <span class="badge bg-purple">Admin</span>
                                         {% else %}
-                                        <span class="badge bg-secondary">Usuário</span>
+                                            <span class="badge bg-secondary">Usuário</span>
                                         {% endif %}
                                     </td>
-                                    <td>
-                                        <small class="text-muted">{{ user.created_at.strftime('%d/%m/%Y') }}</small>
-                                    </td>
+                                    <td><small class="text-muted">{{ user.created_at.strftime('%d/%m/%Y') }}</small></td>
                                     <td>
                                         <small class="text-muted">
-                                            {% if user.last_login %}
-                                            {{ user.last_login.strftime('%d/%m/%Y %H:%M') }}
-                                            {% else %}
-                                            Nunca
-                                            {% endif %}
+                                            {% if user.last_login %}{{ user.last_login.strftime('%d/%m/%Y %H:%M') }}{% else %}Nunca{% endif %}
                                         </small>
                                     </td>
+                                    <td><span class="badge bg-info">{{ user.datasets.count() }}</span></td>
                                     <td>
-                                        <span class="badge bg-info">{{ user.datasets.count() }}</span>
-                                    </td>
-                                    <td>
-                                        <!-- === INÍCIO DA CORREÇÃO NA SEÇÃO DE AÇÕES === -->
                                         <div class="btn-group btn-group-sm">
                                             <button class="btn btn-outline-primary" onclick="viewUserDetails({{ user.id }})" title="Ver detalhes">
                                                 <i class="fas fa-eye"></i>
                                             </button>
-                                            <button class="btn btn-outline-warning" onclick="editUser({{ user.id }})" title="Editar">
+                                            <button class="btn btn-outline-secondary" onclick="editUser({{ user.id }})" title="Editar">
                                                 <i class="fas fa-edit"></i>
                                             </button>
+                                            {# Botões de ação só aparecem para outros usuários, não para o admin logado #}
                                             {% if user.id != current_user.id %}
-                                            <button class="btn btn-outline-{{ 'secondary' if user.is_active else 'success' }}" 
-                                                    onclick="toggleUserStatus({{ user.id }})"
-                                                    title="{{ 'Desativar' if user.is_active else 'Ativar' }}">
-                                                <i class="fas fa-{{ 'times' if user.is_active else 'check' }}"></i>
-                                            </button>
-                                            <button class="btn btn-outline-danger" 
-                                                    onclick="deleteUser({{ user.id }})"
-                                                    title="Deletar Usuário">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
+                                                <button class="btn btn-outline-{{ 'secondary' if user.is_active else 'success' }}" 
+                                                        onclick="toggleUserStatus({{ user.id }})"
+                                                        title="{{ 'Desativar' if user.is_active else 'Ativar' }}">
+                                                    <i class="fas fa-power-off"></i>
+                                                </button>
+                                                <button class="btn btn-outline-danger" 
+                                                        onclick="deleteUser({{ user.id }})"
+                                                        title="Deletar Usuário">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
                                             {% endif %}
                                         </div>
-                                        <!-- === FIM DA CORREÇÃO NA SEÇÃO DE AÇÕES === -->
                                     </td>
                                 </tr>
                                 {% else %}
                                 <tr>
-                                    <td colspan="9" class="text-center text-muted py-4">
-                                        <i class="fas fa-users fa-2x mb-2 d-block"></i>
-                                        Nenhum usuário encontrado
+                                    <td colspan="8" class="text-center text-muted py-5">
+                                        <i class="fas fa-users-slash fa-2x mb-2 d-block"></i>
+                                        Nenhum usuário encontrado.
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -247,20 +177,27 @@
                 
                 <!-- Paginação -->
                 {% if users.pages > 1 %}
-                <div class="card-footer">
+                <div class="card-footer bg-light">
                     <nav aria-label="Navegação de usuários">
                         <ul class="pagination justify-content-center mb-0">
-                            {% for page_num in users.iter_pages(left_edge=2, left_current=2, right_current=2, right_edge=2) %}
+                            {# Link para a página anterior #}
+                            <li class="page-item {% if not users.has_prev %}disabled{% endif %}">
+                                <a class="page-link" href="{{ url_for('main.admin_users', page=users.prev_num) if users.has_prev else '#' }}">&laquo;</a>
+                            </li>
+                            {# Links das páginas #}
+                            {% for page_num in users.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
                                 {% if page_num %}
                                     <li class="page-item {% if page_num == users.page %}active{% endif %}">
                                         <a class="page-link" href="{{ url_for('main.admin_users', page=page_num) }}">{{ page_num }}</a>
                                     </li>
                                 {% else %}
-                                    <li class="page-item disabled">
-                                        <span class="page-link">...</span>
-                                    </li>
+                                    <li class="page-item disabled"><span class="page-link">...</span></li>
                                 {% endif %}
                             {% endfor %}
+                            {# Link para a próxima página #}
+                            <li class="page-item {% if not users.has_next %}disabled{% endif %}">
+                                <a class="page-link" href="{{ url_for('main.admin_users', page=users.next_num) if users.has_next else '#' }}">&raquo;</a>
+                            </li>
                         </ul>
                     </nav>
                 </div>
@@ -275,13 +212,11 @@
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="userDetailsModalLabel">
-                    <i class="fas fa-user-circle me-2"></i>Detalhes do Usuário
-                </h5>
+                <h5 class="modal-title" id="userDetailsModalLabel"><i class="fas fa-user-circle me-2"></i>Detalhes do Usuário</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body" id="userDetailsContent">
-                <!-- Conteúdo será carregado aqui via JavaScript -->
+                <!-- Conteúdo carregado via JavaScript -->
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
@@ -289,87 +224,71 @@
         </div>
     </div>
 </div>
-
 {% endblock %}
 
 {% block extra_js %}
 <script>
-// Bloco para executar quando a página carregar
-document.addEventListener('DOMContentLoaded', function() {
-    updateUserStats();
-});
-
-// Função para atualizar os cards de estatísticas
-function updateUserStats() {
-    const rows = document.querySelectorAll('tbody tr[id^="user-"]');
-    let activeCount = 0;
-    let adminCount = 0;
-    
-    rows.forEach(row => {
-        const statusBadge = row.querySelector('.badge.bg-success');
-        if (statusBadge && statusBadge.textContent.trim() === 'Ativo') {
-            activeCount++;
-        }
-        
-        const typeBadge = row.querySelector('.badge.bg-purple');
-        if (typeBadge && typeBadge.textContent.trim() === 'Administrador') {
-            adminCount++;
-        }
-    });
-    
-    document.getElementById('activeUsersCount').textContent = activeCount;
-    document.getElementById('adminUsersCount').textContent = adminCount;
-    // A contagem de "Novos" (7 dias) precisaria vir do backend para ser precisa,
-    // então a deixamos como está por enquanto.
+// --- FUNÇÃO DE NOTIFICAÇÃO (TOAST) ---
+function showToast(message, type = 'info') {
+    const toastContainer = document.querySelector('.toast-container'); // Certifique-se que este container existe no base.html
+    if (!toastContainer) {
+        alert(`[${type.toUpperCase()}] ${message}`);
+        return;
+    }
+    const toastId = 'toast-' + Date.now();
+    const bgClass = `bg-${type}`;
+    const iconClass = { success: 'fa-check-circle', danger: 'fa-exclamation-triangle', info: 'fa-info-circle' }[type] || 'fa-bell';
+    const toastHTML = `
+        <div id="${toastId}" class="toast align-items-center text-white ${bgClass} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex"><div class="toast-body"><i class="${iconClass} me-2"></i>${message}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button></div>
+        </div>`;
+    toastContainer.insertAdjacentHTML('beforeend', toastHTML);
+    const toastEl = document.getElementById(toastId);
+    const toast = new bootstrap.Toast(toastEl, { delay: 5000 });
+    toast.show();
+    toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
 }
 
-// --- IMPLEMENTAÇÃO DAS AÇÕES DOS BOTÕES ---
+// --- AÇÕES DOS BOTÕES (INTERATIVIDADE) ---
 
-// AÇÃO 1: Visualizar Detalhes do Usuário
+// Visualizar Detalhes
 async function viewUserDetails(userId) {
     const modal = new bootstrap.Modal(document.getElementById('userDetailsModal'));
     const modalContent = document.getElementById('userDetailsContent');
-    
-    modalContent.innerHTML = `<div class="text-center py-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>`;
+    modalContent.innerHTML = `<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div></div>`;
     modal.show();
 
     try {
         const response = await fetch(`/admin/api/user_details/${userId}`);
         const result = await response.json();
-
-        if (result.success) {
-            const details = result.details;
-            modalContent.innerHTML = `
-                <h5>${details.username} <small class="text-muted">(ID: #${details.id})</small></h5>
-                <hr>
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <strong>Email:</strong> ${details.email}<br>
-                        <strong>Status:</strong> ${details.is_active ? '<span class="badge bg-success">Ativo</span>' : '<span class="badge bg-danger">Inativo</span>'}<br>
-                        <strong>Tipo:</strong> ${details.is_admin ? '<span class="badge bg-purple">Administrador</span>' : '<span class="badge bg-secondary">Usuário</span>'}<br>
-                    </div>
-                    <div class="col-md-6">
-                        <strong>Cadastro:</strong> ${details.created_at}<br>
-                        <strong>Último Login:</strong> ${details.last_login}<br>
-                        <strong>Datasets Enviados:</strong> <span class="badge bg-info">${details.datasets_count}</span><br>
-                        <strong>Modelos Treinados:</strong> <span class="badge bg-warning">${details.models_count}</span>
-                    </div>
+        if (!response.ok) throw new Error(result.error || 'Falha ao buscar dados.');
+        
+        const details = result.details;
+        modalContent.innerHTML = `
+            <h5>${details.username} <small class="text-muted">(ID: #${details.id})</small></h5><hr>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <strong>Email:</strong> ${details.email}<br>
+                    <strong>Status:</strong> ${details.is_locked ? '<span class="badge bg-danger">Bloqueado</span>' : (details.is_active ? '<span class="badge bg-success">Ativo</span>' : '<span class="badge bg-secondary">Inativo</span>')}<br>
+                    <strong>Tipo:</strong> ${details.is_admin ? '<span class="badge bg-purple">Admin</span>' : '<span class="badge bg-secondary">Usuário</span>'}<br>
                 </div>
-            `;
-        } else {
-            throw new Error(result.error);
-        }
+                <div class="col-md-6">
+                    <strong>Cadastro:</strong> ${details.created_at}<br>
+                    <strong>Último Login:</strong> ${details.last_login}<br>
+                    <strong>Datasets:</strong> <span class="badge bg-info">${details.datasets_count}</span> | <strong>Modelos:</strong> <span class="badge bg-warning">${details.models_count}</span>
+                </div>
+            </div>`;
     } catch (error) {
-        modalContent.innerHTML = `<div class="alert alert-danger"><strong>Erro ao carregar detalhes:</strong> ${error.message}</div>`;
+        modalContent.innerHTML = `<div class="alert alert-danger"><strong>Erro:</strong> ${error.message}</div>`;
     }
 }
 
-// AÇÃO 2: Ativar/Desativar Usuário
+// Ativar/Desativar Usuário
 async function toggleUserStatus(userId) {
-    const button = document.querySelector(`#user-${userId} button[onclick*="toggleUserStatus"]`);
-    const icon = button.querySelector('i');
-    const originalClass = icon.className;
-    icon.className = "fas fa-sync fa-spin"; // Mostra spinner de carregamento
+    const confirmMessage = document.querySelector(`#user-${userId} button[title='Desativar']`) 
+        ? 'Desativar este usuário? Ele não poderá mais fazer login.' 
+        : 'Reativar este usuário?';
+    if (!confirm(confirmMessage)) return;
 
     try {
         const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
@@ -378,121 +297,38 @@ async function toggleUserStatus(userId) {
             headers: { 'X-CSRFToken': csrfToken }
         });
         const result = await response.json();
-
-        if (response.ok) {
-            showToast(result.message, 'success');
-            // Atualiza a interface dinamicamente
-            const statusBadge = document.querySelector(`#user-${userId} td:nth-child(4) > span`);
-            if (result.is_active) {
-                statusBadge.className = 'badge bg-success';
-                statusBadge.textContent = 'Ativo';
-                button.title = 'Desativar';
-                button.classList.remove('btn-outline-success');
-                button.classList.add('btn-outline-secondary');
-                icon.className = 'fas fa-times';
-            } else {
-                statusBadge.className = 'badge bg-danger';
-                statusBadge.textContent = 'Inativo';
-                button.title = 'Ativar';
-                button.classList.remove('btn-outline-secondary');
-                button.classList.add('btn-outline-success');
-                icon.className = 'fas fa-check';
-            }
-            updateUserStats(); // Atualiza os contadores
-        } else {
-            throw new Error(result.error);
-        }
+        if (!response.ok) throw new Error(result.error);
+        
+        showToast(result.message, 'success');
+        location.reload(); // Recarrega a página para atualizar todos os status
     } catch (error) {
         showToast(error.message, 'danger');
-        icon.className = originalClass; // Restaura ícone original em caso de erro
     }
 }
 
-// AÇÃO 3: Deletar Usuário
+// Deletar Usuário
 async function deleteUser(userId) {
-    if (!confirm(`Tem certeza que deseja DELETAR o usuário #${userId}? Esta ação é irreversível.`)) {
-        return;
-    }
-
+    if (!confirm(`TEM CERTEZA que deseja deletar o usuário #${userId}? Todos os seus datasets e modelos serão perdidos.`)) return;
     try {
-        showToast(`Deletando usuário #${userId}...`, 'info');
         const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
         const response = await fetch(`/admin/api/delete_user/${userId}`, {
             method: 'DELETE',
             headers: { 'X-CSRFToken': csrfToken }
         });
         const result = await response.json();
+        if (!response.ok) throw new Error(result.error);
 
-        if (response.ok) {
-            showToast(result.message, 'success');
-            document.getElementById(`user-${userId}`).remove();
-            updateUserStats();
-        } else {
-            throw new Error(result.error);
-        }
+        showToast(result.message, 'success');
+        document.getElementById(`user-${userId}`).style.opacity = 0;
+        setTimeout(() => document.getElementById(`user-${userId}`).remove(), 500);
     } catch (error) {
         showToast(error.message, 'danger');
     }
 }
 
-// AÇÃO 4: Editar (Placeholder)
-function editUser(userId) {
-    showToast(`Funcionalidade de edição para o usuário #${userId} em desenvolvimento.`, 'info');
-}
-
-// Outras funções (filtros, exportação - placeholders)
-function applyFilters() {
-    showToast('Funcionalidade de filtros em desenvolvimento.', 'info');
-}
-function exportUsers() {
-    showToast('Funcionalidade de exportação em desenvolvimento.', 'info');
-}
-
-// Função de Toast (garanta que ela exista)
-function showToast(message, type = 'info') {
-    const toastContainer = document.getElementById('toast-container');
-    if (!toastContainer) {
-        const container = document.createElement('div');
-        container.id = 'toast-container';
-        container.className = 'toast-container position-fixed top-0 end-0 p-3';
-        container.style.zIndex = '1100';
-        document.body.appendChild(container);
-    }
-    const toastId = 'toast-' + Date.now();
-    const bgClass = `bg-${type}`;
-    const iconClass = {
-        'success': 'fas fa-check-circle',
-        'danger': 'fas fa-exclamation-triangle',
-        'warning': 'fas fa-exclamation-circle',
-        'info': 'fas fa-info-circle'
-    }[type] || 'fas fa-bell';
-    const toastHTML = `
-        <div id="${toastId}" class="toast align-items-center text-white ${bgClass} border-0" role="alert" aria-live="assertive" aria-atomic="true">
-            <div class="d-flex">
-                <div class="toast-body"><i class="${iconClass} me-2"></i>${message}</div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-            </div>
-        </div>
-    `;
-    document.getElementById('toast-container').insertAdjacentHTML('beforeend', toastHTML);
-    const toastEl = document.getElementById(toastId);
-    const toast = new bootstrap.Toast(toastEl, { delay: 5000 });
-    toast.show();
-    toastEl.addEventListener('hidden.bs.toast', () => { toastEl.remove(); });
-}
+// Funções de placeholder para funcionalidades futuras
+function editUser(userId) { showToast(`Funcionalidade "Editar" para o usuário #${userId} ainda não implementada.`, 'info'); }
+function applyFilters() { showToast('Funcionalidade de filtros ainda não implementada.', 'info'); }
+function exportUsers() { showToast('Funcionalidade de exportação ainda não implementada.', 'info'); }
 </script>
-
-<style>
-.avatar-sm {
-    width: 32px;
-    height: 32px;
-    font-size: 14px;
-}
-.bg-purple {
-    background-color: #6f42c1 !important;
-}
-.table td {
-    vertical-align: middle;
-}
-</style>
 {% endblock %}

@@ -56,7 +56,7 @@ class User(UserMixin, db.Model):
 
     # --- Métodos de Segurança de Login (Bloqueio de Conta) ---
     def is_locked(self):
-        """Retorna True se a conta do usuário estiver temporariamente bloqueada."""
+        """Retorna True se o usuário estiver bloqueado no momento."""
         if self.locked_until is None:
             return False
         return self.locked_until > datetime.utcnow()
