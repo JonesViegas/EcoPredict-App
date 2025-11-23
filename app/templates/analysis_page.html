@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block title %}Análise do Dataset - EcoPredict{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h3 mb-0">
+                <i class="fas fa-chart-pie me-2"></i>
+                Análise do Dataset: <strong>{{ dataset.original_filename }}</strong>
+            </h1>
+            <p class="text-muted">Fonte dos dados: <span class="badge bg-info">{{ dataset.source }}</span></p>
+        </div>
+        <div class="col-auto">
+             <a href="{{ url_for('main.ml_models') }}" class="btn btn-success">
+                <i class="fas fa-brain me-2"></i>Ir para Modelagem ML
+            </a>
+        </div>
+    </div>
+
+    <!-- ANÁLISE PARA DADOS OPENAQ -->
+    {% if dataset.source == 'openaq' %}
+    <div class="row g-4">
+        <div class="col-12">
+            <div class="card card-custom">
+                <div class="card-header"><h5 class="card-title mb-0">Evolução do AQI</h5></div>
+                <div class="card-body text-center">
+                    {% if analysis_results.timeseries_plot %}
+                        <img src="data:image/png;base64,{{ analysis_results.timeseries_plot }}" class="img-fluid" alt="Gráfico de Série Temporal do AQI">
+                    {% else %}
+                        <p class="text-muted">Não foi possível gerar o gráfico de evolução do AQI.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-12">
+            <div class="card card-custom">
+                <div class="card-header"><h5 class="card-title mb-0">Matriz de Correlação</h5></div>
+                <div class="card-body text-center">
+                     {% if analysis_results.correlation_heatmap %}
+                        <img src="data:image/png;base64,{{ analysis_results.correlation_heatmap }}" class="img-fluid" alt="Matriz de Correlação">
+                    {% else %}
+                        <p class="text-muted">Não foi possível gerar a matriz de correlação.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- ANÁLISE PARA DADOS INPE -->
+    {% if dataset.source == 'inpe' %}
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="card card-custom">
+                <div class="card-header"><h5 class="card-title mb-0">Focos de Queimada por Bioma</h5></div>
+                <div class="card-body text-center">
+                    {% if analysis_results.fires_by_biome_plot %}
+                        <img src="data:image/png;base64,{{ analysis_results.fires_by_biome_plot }}" class="img-fluid" alt="Gráfico de Focos por Bioma">
+                    {% else %}
+                        <p class="text-muted">Não foi possível gerar o gráfico por bioma.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card card-custom">
+                <div class="card-header"><h5 class="card-title mb-0">Focos de Queimada por Estado</h5></div>
+                <div class="card-body">
+                    {% if analysis_results.fires_by_state_table %}
+                        {{ analysis_results.fires_by_state_table|safe }}
+                    {% else %}
+                        <p class="text-muted">Não foi possível gerar a tabela por estado.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ANÁLISE PARA DADOS INMET -->
+    {% if dataset.source == 'inmet' %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card card-custom">
+                <div class="card-header"><h5 class="card-title mb-0">Temperatura vs. Umidade</h5></div>
+                <div class="card-body text-center">
+                    {% if analysis_results.temp_humidity_plot %}
+                        <img src="data:image/png;base64,{{ analysis_results.temp_humidity_plot }}" class="img-fluid" alt="Gráfico de Temperatura e Umidade">
+                    {% else %}
+                        <p class="text-muted">Não foi possível gerar o gráfico de temperatura e umidade.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ANÁLISE GENÉRICA -->
+    {% if dataset.source == 'user_upload' %}
+    <div class="row g-4">
+        <div class="col-12">
+            <div class="card card-custom">
+                <div class="card-header"><h5 class="card-title mb-0">Estatísticas Descritivas</h5></div>
+                <div class="card-body">
+                    {% if analysis_results.descriptive_stats %}
+                        {{ analysis_results.descriptive_stats|safe }}
+                    {% else %}
+                        <p class="text-muted">Não foi possível gerar as estatísticas.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-12">
+            <div class="card card-custom">
+                <div class="card-header"><h5 class="card-title mb-0">Matriz de Correlação</h5></div>
+                <div class="card-body text-center">
+                     {% if analysis_results.correlation_heatmap %}
+                        <img src="data:image/png;base64,{{ analysis_results.correlation_heatmap }}" class="img-fluid" alt="Matriz de Correlação">
+                    {% else %}
+                        <p class="text-muted">Não há dados numéricos suficientes para gerar a matriz de correlação.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

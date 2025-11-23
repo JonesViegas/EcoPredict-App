@@ -8,6 +8,7 @@ from app.forms import DatasetUploadForm, MLModelForm, AirQualityDataForm
 from app.utils import allowed_file, process_uploaded_file
 from app.ml_models import train_model, make_prediction, evaluate_model
 from app.data_processing import calculate_correlations, generate_statistics, clean_dataset
+from pandas.api.types import is_numeric_dtype
 import pandas as pd
 import numpy as np
 import os
@@ -15,6 +16,12 @@ from datetime import datetime, timedelta
 import requests
 import logging
 import flask 
+from app.analysis import (
+    generate_openaq_analysis, 
+    generate_inpe_analysis, 
+    generate_inmet_analysis, 
+    generate_generic_analysis
+)
 
 main_bp = Blueprint('main', __name__)
 
@@ -452,7 +459,8 @@ def upload_data():
                         is_public=form.is_public.data,
                         user_id=current_user.id,
                         data_quality_score=float(result['quality_score']),
-                        missing_data_percentage=float(result['missing_percentage'])
+                        missing_data_percentage=float(result['missing_percentage']),
+                        source='user_upload'
                     )
                     
                     db.session.add(dataset)
@@ -736,74 +744,50 @@ def add_air_quality_data():
 @main_bp.route('/api/dataset-features/<int:dataset_id>')
 @login_required
 def api_dataset_features(dataset_id):
-    """API para buscar features disponíveis em um dataset (versão aprimorada)"""
+    """API para buscar features e seus tipos em um dataset."""
     try:
         dataset = Dataset.query.get_or_404(dataset_id)
         
-        # 1. Valida o acesso do usuário
         if dataset.user_id != current_user.id and not dataset.is_public:
             return jsonify({'success': False, 'error': 'Acesso negado'}), 403
         
-        # 2. Constrói o caminho absoluto do arquivo de forma segura
-        file_path = dataset.file_path
-        if not os.path.isabs(file_path):
-            # Se o caminho for relativo (ex: 'uploads/arquivo.csv'), une com a raiz da app
-            file_path = os.path.join(current_app.root_path, file_path)
+        if not os.path.exists(dataset.file_path):
+            return jsonify({'success': False, 'error': 'Arquivo não encontrado'}), 404
 
-        # 3. Verifica se o arquivo existe antes de tentar ler
-        if not os.path.exists(file_path):
-            logger.error(f"Arquivo do dataset {dataset_id} não encontrado em: {file_path}")
-            return jsonify({
-                'success': False, 
-                'error': 'Arquivo do dataset não encontrado no servidor.'
-            }), 404
+        # NOVA LÓGICA DE ANÁLISE DE TIPOS
+        # ----------------------------------------------------
+        df = pd.read_csv(dataset.file_path, nrows=500) # Lê algumas linhas para inferir tipos
 
-        # 4. Lê o arquivo de forma inteligente (CSV ou Excel)
-        try:
-            filename_lower = dataset.filename.lower()
-            if filename_lower.endswith('.csv'):
-                df = pd.read_csv(file_path, nrows=5)
-            elif filename_lower.endswith(('.xlsx', '.xls')):
-                df = pd.read_excel(file_path, nrows=5)
+        columns_with_types = []
+        for col in df.columns:
+            # Pula colunas de data/id que não servem como feature nem alvo
+            if 'date' in col.lower() or 'time' in col.lower() or 'id' in col.lower() or col.startswith('Unnamed'):
+                continue
+            
+            column_type = ''
+            # Verifica se a coluna é numérica
+            if is_numeric_dtype(df[col]):
+                # Se for numérica, mas tiver poucos valores únicos (ex: 0, 1, 2), é categórica
+                if df[col].nunique() < 25: # Um limiar: menos de 25 valores únicos = categoria
+                    column_type = 'categorical'
+                else:
+                    column_type = 'numeric'
             else:
-                # Tenta ler como CSV por padrão, mas avisa sobre formato desconhecido
-                df = pd.read_csv(file_path, nrows=5)
-                logger.warning(f"Formato de arquivo desconhecido para {dataset.filename}, tentando ler como CSV.")
+                # Se não for numérica, é categórica
+                column_type = 'categorical'
 
-            features = df.columns.tolist()
+            columns_with_types.append({'name': col, 'type': column_type})
+        # ----------------------------------------------------
+
+        return jsonify({
+            'success': True, 
+            'columns': columns_with_types, # <-- Retorna a nova estrutura
+            'dataset_name': dataset.original_filename,
+            'total_rows': dataset.rows_count
+        })
             
-            # 5. Mantém a lógica de limpeza de colunas
-            excluded_columns = [
-                'datetime', 'date', 'time', 'timestamp', 
-                'location', 'city', 'country', 'state', 
-                'latitude', 'longitude', 'unit', 'id',
-                'Unnamed: 0', 'index', 'AQI_Category' # Adiciona AQI_Category à exclusão
-            ]
-            
-            features = [
-                f for f in features 
-                if (f.lower() not in [col.lower() for col in excluded_columns] and 
-                    not f.startswith('Unnamed') and 
-                    not f.startswith('_') and
-                    str(f).strip() != '')
-            ]
-            
-            return jsonify({
-                'success': True, 
-                'features': features,
-                'dataset_name': dataset.original_filename,
-                'total_rows': dataset.rows_count
-            })
-            
-        except Exception as e:
-            logger.error(f"Erro ao ler o arquivo do dataset {dataset_id}: {e}")
-            return jsonify({
-                'success': False, 
-                'error': f'Não foi possível ler o arquivo. Verifique se o formato (CSV/Excel) está correto.'
-            }), 500
-        
     except Exception as e:
-        logger.error(f"Erro geral ao buscar features do dataset {dataset_id}: {e}")
+        logger.error(f"Erro ao buscar features do dataset {dataset_id}: {e}")
         return jsonify({'success': False, 'error': 'Ocorreu um erro inesperado no servidor.'}), 500
     
 @main_bp.route('/datasets/<int:dataset_id>/export')
@@ -2116,3 +2100,42 @@ def toggle_user_status(user_id):
     except Exception as e:
         logger.error(f"Erro ao alterar status do usuário: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
+    
+@main_bp.route('/analysis/<int:dataset_id>')
+@login_required
+def analysis_page(dataset_id):
+    dataset = Dataset.query.get_or_404(dataset_id)
+
+    # Verificação de permissão
+    if dataset.user_id != current_user.id:
+        flash('Você не tem permissão para analisar este dataset.', 'danger')
+        return redirect(url_for('main.datasets'))
+
+    try:
+        if not os.path.exists(dataset.file_path):
+            flash(f'Arquivo do dataset "{dataset.original_filename}" não encontrado.', 'danger')
+            return redirect(url_for('main.datasets'))
+            
+        df = pd.read_csv(dataset.file_path)
+        
+        analysis_results = {}
+        # Decide qual função de análise chamar com base na origem do dataset
+        if dataset.source == 'openaq':
+            analysis_results = generate_openaq_analysis(df)
+        elif dataset.source == 'inpe':
+            analysis_results = generate_inpe_analysis(df)
+        elif dataset.source == 'inmet':
+            analysis_results = generate_inmet_analysis(df)
+        else: # 'user_upload' ou qualquer outro
+            analysis_results = generate_generic_analysis(df)
+
+        return render_template(
+            'analysis_page.html', 
+            dataset=dataset, 
+            analysis_results=analysis_results
+        )
+
+    except Exception as e:
+        logger.error(f"Erro ao analisar o dataset {dataset_id}: {e}")
+        flash(f'Ocorreu um erro ao tentar analisar o dataset: {e}', 'danger')
+        return redirect(url_for('main.datasets'))

@@ -93,9 +93,11 @@
                             <!-- Target Variable -->
                             <div class="col-12">
                                 {{ form.target_variable.label(class="form-label") }}
-                                {{ form.target_variable(class="form-control", placeholder="Ex: Overall_AQI, pm25, AQI_Category", id="targetVariable") }}
-                                <small class="form-text text-muted">
-                                    Variável que você quer prever. Exemplos comuns: Overall_AQI, pm25, temperature
+                                {{ form.target_variable(class="form-control", placeholder="Selecione o tipo de modelo para ver sugestões", id="targetVariable", list="target-suggestions") }}
+                                <datalist id="target-suggestions"></datalist>
+
+                                <small class="form-text text-muted" id="target-helper-text">
+                                    Variável que você quer prever. Exemplos: Overall_AQI, AQI_Category
                                 </small>
                                 {% if form.target_variable.errors %}
                                     <div class="text-danger">
@@ -363,27 +365,23 @@ document.getElementById('datasetSelect').addEventListener('change', function() {
     `;
     
     // Fetch features from the server
-    fetch(`/api/dataset-features/${datasetId}`)
-        .then(response => {
-            if (!response.ok) throw new Error('Erro na resposta do servidor');
-            return response.json();
-        })
+     fetch(`/api/dataset-features/${datasetId}`)
+        .then(response => response.json())
         .then(data => {
-            if (data.success && data.features && data.features.length > 0) {
-                currentFeatures = data.features;
-                renderFeaturesSelection(data.features);
+            // AQUI ESTÁ A MUDANÇA
+            if (data.success && data.columns && data.columns.length > 0) {
+                // Salva as colunas com tipos na variável global
+                currentColumns = data.columns; 
                 
-                // Suggest common target variables
-                suggestTargetVariables(data.features);
+                // Extrai apenas os nomes para os checkboxes de features
+                const featureNames = data.columns.map(col => col.name);
+                renderFeaturesSelection(featureNames);
+                
+                // Chama a nova função para atualizar o campo alvo
+                updateTargetVariableSuggestions(); 
                 
             } else {
-                featuresContainer.innerHTML = `
-                    <div class="alert alert-warning mb-0">
-                        <i class="fas fa-exclamation-triangle me-2"></i>
-                        Não foi possível carregar as variáveis deste dataset.
-                        ${data.error ? `Erro: ${data.error}` : ''}
-                    </div>
-                `;
+                // ... (código de tratamento de erro existente) ...
             }
         })
         .catch(error => {
@@ -396,6 +394,7 @@ document.getElementById('datasetSelect').addEventListener('change', function() {
             `;
         });
 });
+document.getElementById('model_type').addEventListener('change', updateTargetVariableSuggestions);
 
 function renderFeaturesSelection(features) {
     const featuresContainer = document.getElementById('features-container');
@@ -458,22 +457,45 @@ function updateSelectedCount() {
     }
 }
 
-function suggestTargetVariables(features) {
+function suggestTargetVariables() {
+    // Essa função agora só é um placeholder, a lógica principal está em updateTargetVariableSuggestions
+    console.log("Variáveis carregadas, prontas para sugestão.");
+}
+
+function updateTargetVariableSuggestions() {
+    const modelType = document.getElementById('model_type').value;
     const targetInput = document.getElementById('targetVariable');
-    const commonTargets = ['Overall_AQI', 'AQI_Category', 'pm25', 'pm10', 'temperature', 'humidity'];
-    
-    // Find the first common target that exists in features
-    const suggestedTarget = commonTargets.find(target => features.includes(target));
-    
-    if (suggestedTarget) {
-        targetInput.placeholder = `Ex: ${suggestedTarget}`;
+    const datalist = document.getElementById('target-suggestions');
+    const helperText = document.getElementById('target-helper-text');
+    datalist.innerHTML = ''; // Limpa sugestões antigas
+
+    let suggestedColumns = [];
+
+    if (modelType === 'regression') {
+        suggestedColumns = currentColumns.filter(col => col.type === 'numeric');
+        targetInput.placeholder = "Sugestão: pm25, temperature, Overall_AQI...";
+        helperText.textContent = "Para Regressão, escolha uma variável com valores numéricos contínuos.";
+    } else if (modelType === 'classification') {
+        suggestedColumns = currentColumns.filter(col => col.type === 'categorical');
+        targetInput.placeholder = "Sugestão: AQI_Category, risk_level...";
+        helperText.textContent = "Para Classificação, escolha uma variável com um número limitado de categorias.";
+    }
+
+    if (suggestedColumns.length > 0) {
+        suggestedColumns.forEach(col => {
+            const option = document.createElement('option');
+            option.value = col.name;
+            datalist.appendChild(option);
+        });
+        // Auto-preenche com a primeira sugestão, se o campo estiver vazio
         if (!targetInput.value) {
-            targetInput.value = suggestedTarget;
+            targetInput.value = suggestedColumns[0].name;
         }
-    } else if (features.length > 0) {
-        targetInput.placeholder = `Ex: ${features[0]}`;
+    } else {
+        targetInput.placeholder = "Nenhuma variável adequada encontrada para este tipo de modelo.";
     }
 }
+
 
 // Form validation and loading
 document.getElementById('mlForm').addEventListener('submit', function(e) {
@@ -516,6 +538,8 @@ document.getElementById('mlForm').addEventListener('submit', function(e) {
     
     const loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'));
     loadingModal.show();
+
+
 });
 
 // Model details function

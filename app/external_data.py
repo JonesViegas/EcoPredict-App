@@ -381,7 +381,7 @@ def openaq():
             # 1. Pega o diretório de upload da configuração central.
             upload_dir = current_app.config['UPLOAD_FOLDER']
             # 2. Garante que o diretório exista.
-            os.makedirs(upload_dir, exist_ok=True)
+            #os.makedirs(upload_dir, exist_ok=True)
             # 3. Cria o caminho final de forma segura.
             file_path = os.path.join(upload_dir, filename)
 
@@ -404,7 +404,8 @@ def openaq():
                 is_public=False,
                 user_id=current_user.id,
                 data_quality_score=float(quality_score),
-                missing_data_percentage=float(missing_percentage)
+                missing_data_percentage=float(missing_percentage),
+                source='openaq'
             )
             
             db.session.add(dataset)
@@ -511,7 +512,8 @@ def inmet():
                 is_public=False,
                 user_id=current_user.id,
                 data_quality_score=float(quality_score),
-                missing_data_percentage=float(missing_percentage)
+                missing_data_percentage=float(missing_percentage),
+                source='inmet'
             )
             
             db.session.add(dataset)
@@ -616,7 +618,8 @@ def inpe():
                 is_public=False,
                 user_id=current_user.id,
                 data_quality_score=float(quality_score),
-                missing_data_percentage=float(missing_percentage)
+                missing_data_percentage=float(missing_percentage),
+                source='inpe'
             )
             
             db.session.add(dataset)

@@ -115,7 +115,8 @@ class Dataset(db.Model):
     # Data quality metrics
     data_quality_score = db.Column(db.Float, default=0.0)
     missing_data_percentage = db.Column(db.Float, default=0.0)
-    
+    source = db.Column(db.String(50), nullable=True, index=True) # Ex: 'openaq', 'inmet', 'inpe', 'user_upload'
+
     def __repr__(self):
         return f'<Dataset {self.original_filename}>'
 
