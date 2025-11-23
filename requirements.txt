@@ -46,3 +46,5 @@ gunicorn==21.2.0
 waitress==2.1.2
 
 email_validator==2.1.1
+matplotlib
+seaborn
