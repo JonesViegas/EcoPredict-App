@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}Laboratório de Análise - {{ dataset.original_filename }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <h1 class="h3 mb-2"><i class="fas fa-flask me-2"></i>Laboratório de Análise</h1>
+    <p class="text-muted">Analisando: <strong>{{ dataset.original_filename }}</strong></p>
+    
+    <!-- =============================================== -->
+    <!--          NOVA SEÇÃO: PRÉVIA DO DATASET          -->
+    <!-- =============================================== -->
+    <div class="accordion mb-4" id="dataPreviewAccordion">
+        <div class="accordion-item">
+            <h2 class="accordion-header" id="headingOne">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDataPreview" aria-expanded="false" aria-controls="collapseDataPreview">
+                    <i class="fas fa-table me-2"></i> Visualizar Dados do Dataset (Primeiras 10 Linhas)
+                </button>
+            </h2>
+            <div id="collapseDataPreview" class="accordion-collapse collapse" aria-labelledby="headingOne" data-bs-parent="#dataPreviewAccordion">
+                <div class="accordion-body">
+                    {% if data_preview %}
+                        <div class="table-responsive">
+                            {{ data_preview|safe }}
+                        </div>
+                    {% else %}
+                        <div class="alert alert-warning">Não foi possível carregar a prévia dos dados.</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- =============================================== -->
+    <!--              FIM DA NOVA SEÇÃO                  -->
+    <!-- =============================================== -->
+
+
+    <div class="row">
+        <!-- Menu de Análises (com pequenos ajustes) -->
+        <div class="col-lg-3">
+            <div class="card card-custom">
+                <div class="card-header"><h5 class="card-title mb-0">Selecione uma Análise</h5></div>
+                <div class="list-group list-group-flush">
+                    <!-- Clusterização -->
+                    <a href="#clustering" class="list-group-item list-group-item-action" data-bs-toggle="collapse">
+                        <i class="fas fa-project-diagram fa-fw me-2"></i>Clusterização
+                    </a>
+                    <div id="clustering" class="collapse p-3 border-top">
+                        <!-- Conteúdo da Clusterização (permanece o mesmo) -->
+                        <h6>Parâmetros</h6>
+                        <div class="mb-2">
+                            <label class="form-label">Features Numéricas:</label>
+                            <select id="clustering-features" class="form-select" multiple size="4">
+                                {% for feature in numeric_features %}<option>{{ feature }}</option>{% endfor %}
+                            </select>
+                            <small class="text-muted">Selecione 2 ou mais (Ctrl+Click)</small>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Número de Grupos (K):</label>
+                            <input type="number" id="clustering-k" class="form-control" value="3" min="2">
+                        </div>
+                        <button class="btn btn-primary w-100" onclick="runAnalysis('clustering')">Executar K-Means</button>
+                    </div>
+
+                    <!-- PCA (permanece o mesmo) -->
+                    <a href="#pca" class="list-group-item list-group-item-action" data-bs-toggle="collapse">
+                        <i class="fas fa-compress-alt fa-fw me-2"></i>Redução de Dimensionalidade
+                    </a>
+                    <div id="pca" class="collapse p-3 border-top">
+                         <h6>Parâmetros</h6>
+                         <div class="mb-2">
+                            <label class="form-label">Features Numéricas:</label>
+                            <select id="pca-features" class="form-select" multiple size="5">
+                                {% for feature in numeric_features %}<option>{{ feature }}</option>{% endfor %}
+                            </select>
+                        </div>
+                        <button class="btn btn-primary w-100" onclick="runAnalysis('pca')">Executar PCA</button>
+                    </div>
+                    
+                    <!-- Classificação (AJUSTADO) -->
+                    <a href="#classification" class="list-group-item list-group-item-action" data-bs-toggle="collapse">
+                        <i class="fas fa-tags fa-fw me-2"></i>Classificação
+                    </a>
+                    <div id="classification" class="collapse p-3 border-top">
+                        <h6>Parâmetros</h6>
+                        <div class="mb-2">
+                            <label class="form-label">Variável Alvo (o que prever):</label>
+                             <select id="classification-target" class="form-select">
+                                {% for feature in all_features %}<option>{{ feature }}</option>{% endfor %}
+                            </select>
+                        </div>
+                         <div class="mb-2">
+                            <label class="form-label">Features de Entrada:</label>
+                            <select id="classification-features" class="form-select" multiple size="4">
+                                {% for feature in all_features %}<option>{{ feature }}</option>{% endfor %}
+                            </select>
+                        </div>
+                        <button class="btn btn-primary w-100" onclick="runAnalysis('classification')">Treinar e Avaliar</button>
+                    </div>
+
+                    <!-- Regressão (AJUSTADO) -->
+                    <a href="#regression" class="list-group-item list-group-item-action" data-bs-toggle="collapse">
+                        <i class="fas fa-chart-line fa-fw me-2"></i>Regressão
+                    </a>
+                     <div id="regression" class="collapse p-3 border-top">
+                        <h6>Parâmetros</h6>
+                        <div class="mb-2">
+                            <label class="form-label">Variável Alvo (Numérica):</label>
+                             <select id="regression-target" class="form-select">
+                                {% for feature in numeric_features %}<option>{{ feature }}</option>{% endfor %}
+                            </select>
+                        </div>
+                         <div class="mb-2">
+                            <label class="form-label">Features de Entrada:</label>
+                            <select id="regression-features" class="form-select" multiple size="4">
+                                {% for feature in all_features %}<option>{{ feature }}</option>{% endfor %}
+                            </select>
+                        </div>
+                        <button class="btn btn-primary w-100" onclick="runAnalysis('regression')">Treinar e Avaliar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Área de Resultados (COM AJUSTES) -->
+        <div class="col-lg-9">
+            <div class="card card-custom">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Resultados da Análise</h5>
+                    <!-- NOVO BOTÃO DE IMPRESSÃO -->
+                    <button class="btn btn-outline-secondary btn-sm" onclick="printReport()" title="Imprimir/Salvar Relatório como PDF">
+                        <i class="fas fa-print me-2"></i>Imprimir Relatório
+                    </button>
+                </div>
+                <div id="results-area" class="card-body" style="min-height: 500px;">
+                    <div class="text-center text-muted pt-5">
+                        <i class="fas fa-arrow-left fa-2x mb-3"></i>
+                        <p>Selecione uma análise no menu à esquerda e configure os parâmetros para ver os resultados aqui.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/lab.js') }}"></script>
+<script>
+    const DATASET_ID = {{ dataset.id }};
+</script>
+{% endblock %}

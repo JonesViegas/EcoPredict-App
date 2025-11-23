@@ -22,6 +22,12 @@ from app.analysis import (
     generate_inmet_analysis, 
     generate_generic_analysis
 )
+from app.advanced_analysis import (
+    run_kmeans_clustering,
+    run_pca_analysis,
+    run_classification_analysis,
+    run_regression_analysis
+)
 
 main_bp = Blueprint('main', __name__)
 
@@ -2139,3 +2145,90 @@ def analysis_page(dataset_id):
         logger.error(f"Erro ao analisar o dataset {dataset_id}: {e}")
         flash(f'Ocorreu um erro ao tentar analisar o dataset: {e}', 'danger')
         return redirect(url_for('main.datasets'))
+    
+@main_bp.route('/lab/<int:dataset_id>')
+@login_required
+def analysis_lab(dataset_id):
+    """Página principal do Laboratório de Análise."""
+    dataset = Dataset.query.get_or_404(dataset_id)
+    if dataset.user_id != current_user.id:
+        abort(403)
+    
+    data_preview_html = None
+    try:
+        df = pd.read_csv(dataset.file_path) # Carrega o DF completo para análise
+        
+        # Pega as colunas para os menus de seleção
+        numeric_features = df.select_dtypes(include=np.number).columns.tolist()
+        all_features = df.columns.tolist() # Usaremos todas para o alvo de classificação
+
+        # Gera o HTML da prévia das primeiras 10 linhas
+        data_preview_html = df.head(10).to_html(
+            classes='table table-sm table-striped table-bordered', 
+            index=False
+        )
+
+    except Exception as e:
+        flash(f"Não foi possível ler o dataset: {e}", "danger")
+        numeric_features = []
+        all_features = []
+        
+    return render_template(
+        'analysis_lab.html', 
+        dataset=dataset,
+        numeric_features=numeric_features,
+        all_features=all_features, # Passando todas as colunas
+        data_preview=data_preview_html # Passando a prévia em HTML
+    )
+@main_bp.route('/lab/run_clustering', methods=['POST'])
+@login_required
+def run_clustering_endpoint():
+    """Endpoint da API para executar a clusterização."""
+    data = request.json
+    dataset_id = data.get('dataset_id')
+    features = data.get('features')
+    n_clusters = int(data.get('n_clusters', 3))
+    
+    dataset = Dataset.query.get_or_404(dataset_id)
+    df = pd.read_csv(dataset.file_path)
+    
+    result = run_kmeans_clustering(df, features, n_clusters)
+    return jsonify(result)
+
+@main_bp.route('/lab/run_pca', methods=['POST'])
+@login_required
+def run_pca_endpoint():
+    """Endpoint da API para executar PCA."""
+    data = request.json
+    dataset = Dataset.query.get_or_404(data.get('dataset_id'))
+    features = data.get('features')
+    
+    df = pd.read_csv(dataset.file_path)
+    result = run_pca_analysis(df, features)
+    return jsonify(result)
+
+@main_bp.route('/lab/run_classification', methods=['POST'])
+@login_required
+def run_classification_endpoint():
+    """Endpoint da API para executar Classificação."""
+    data = request.json
+    dataset = Dataset.query.get_or_404(data.get('dataset_id'))
+    features = data.get('features')
+    target = data.get('target')
+    
+    df = pd.read_csv(dataset.file_path)
+    result = run_classification_analysis(df, features, target)
+    return jsonify(result)
+
+@main_bp.route('/lab/run_regression', methods=['POST'])
+@login_required
+def run_regression_endpoint():
+    """Endpoint da API para executar Regressão."""
+    data = request.json
+    dataset = Dataset.query.get_or_404(data.get('dataset_id'))
+    features = data.get('features')
+    target = data.get('target')
+    
+    df = pd.read_csv(dataset.file_path)
+    result = run_regression_analysis(df, features, target)
+    return jsonify(result)

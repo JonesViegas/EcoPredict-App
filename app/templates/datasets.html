@@ -9,7 +9,7 @@
                 <i class="fas fa-database me-2"></i>
                 Meus Datasets
             </h1>
-            <p class="text-muted">Gerencie e exporte seus datasets de qualidade do ar</p>
+            <p class="text-muted">Gerencie e analise seus datasets de qualidade do ar</p>
         </div>
         <div class="col-auto">
             <a href="{{ url_for('main.upload_data') }}" class="btn btn-success">
@@ -32,7 +32,7 @@
                 <div class="card-body">
                     {% if user_datasets %}
                     <div class="table-responsive">
-                        <table class="table table-hover" id="datasetsTable">
+                        <table class="table table-hover align-middle" id="datasetsTable">
                             <thead>
                                 <tr>
                                     <th>Nome do Arquivo</th>
@@ -41,7 +41,6 @@
                                     <th>Colunas</th>
                                     <th>Qualidade</th>
                                     <th>Data</th>
-                                    <th>Status</th>
                                     <th>Ações</th>
                                 </tr>
                             </thead>
@@ -50,10 +49,19 @@
                                 <tr>
                                     <td>
                                         <i class="fas fa-file-csv text-primary me-2"></i>
-                                        <strong>{{ dataset.original_filename }}</strong>
-                                        {% if dataset.description %}
-                                        <br><small class="text-muted">{{ dataset.description[:50] }}{% if dataset.description|length > 50 %}...{% endif %}</small>
-                                        {% endif %}
+                                        <div>
+                                            <strong>{{ dataset.original_filename }}</strong>
+                                            {% if dataset.description %}
+                                                <br><small class="text-muted">{{ dataset.description[:50] }}{% if dataset.description|length > 50 %}...{% endif %}</small>
+                                            {% endif %}
+                                            <br>
+                                            <span class="badge bg-light text-dark mt-1">Fonte: {{ dataset.source or 'N/A' }}</span>
+                                            {% if dataset.is_public %}
+                                                <span class="badge bg-success mt-1">Público</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary mt-1">Privado</span>
+                                            {% endif %}
+                                        </div>
                                     </td>
                                     <td>{{ "%.1f"|format(dataset.file_size / 1024 / 1024) }} MB</td>
                                     <td>{{ dataset.rows_count }}</td>
@@ -72,44 +80,35 @@
                                         </div>
                                     </td>
                                     <td>{{ dataset.uploaded_at.strftime('%d/%m/%Y') if dataset.uploaded_at else 'N/A' }}</td>
+                                    
+                                    <!-- =============================================== -->
+                                    <!--          INÍCIO DA SEÇÃO CORRIGIDA              -->
+                                    <!-- =============================================== -->
                                     <td>
-                                        {% if dataset.is_public %}
-                                            <span class="badge bg-success">Público</span>
-                                        {% else %}
-                                            <span class="badge bg-secondary">Privado</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <div class="btn-group btn-group-sm">
-                                            <!-- Visualizar -->
-                                            <button class="btn btn-outline-primary" 
-                                                    onclick="viewDataset({{ dataset.id }})" 
-                                                    title="Visualizar Dataset">
-                                                <i class="fas fa-eye"></i>
-                                            </button>
-                                            
-                                            <!-- Exportar -->
-                                            <button class="btn btn-outline-success" 
-                                                    onclick="exportDataset({{ dataset.id }})" 
-                                                    title="Exportar Dataset">
-                                                <i class="fas fa-download"></i>
-                                            </button>
-                                            
-                                            <!-- Download Original -->
-                                            <a href="{{ url_for('main.download_dataset', dataset_id=dataset.id) }}" 
-                                               class="btn btn-outline-info" 
-                                               title="Download Original">
-                                                <i class="fas fa-file-export"></i>
+                                        <div class="d-flex gap-2">
+                                            <!-- Botão Principal de Análise -->
+                                            <a href="{{ url_for('main.analysis_lab', dataset_id=dataset.id) }}" 
+                                               class="btn btn-warning btn-sm" 
+                                               title="Analisar no Laboratório">
+                                                <i class="fas fa-flask me-1"></i> Analisar
                                             </a>
-                                            
-                                            <!-- Informações -->
-                                            <button class="btn btn-outline-secondary" 
-                                                    onclick="showDatasetInfo({{ dataset.id }})" 
-                                                    title="Informações Detalhadas">
-                                                <i class="fas fa-info"></i>
-                                            </button>
+                                            <!-- Menu Dropdown para Outras Ações -->
+                                            <div class="btn-group btn-group-sm">
+                                                <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Mais Opções">
+                                                    <i class="fas fa-ellipsis-h"></i>
+                                                </button>
+                                                <ul class="dropdown-menu dropdown-menu-end">
+                                                    <li><a class="dropdown-item" href="#" onclick="viewDataset({{ dataset.id }})"><i class="fas fa-eye fa-fw me-2"></i>Visualizar Prévia</a></li>
+                                                    <li><a class="dropdown-item" href="#" onclick="showDatasetInfo({{ dataset.id }})"><i class="fas fa-info-circle fa-fw me-2"></i>Informações Detalhadas</a></li>
+                                                    <li><hr class="dropdown-divider"></li>
+                                                    <li><a class="dropdown-item" href="{{ url_for('main.download_dataset', dataset_id=dataset.id) }}"><i class="fas fa-download fa-fw me-2"></i>Baixar Arquivo Original</a></li>
+                                                </ul>
+                                            </div>
                                         </div>
                                     </td>
+                                    <!-- =============================================== -->
+                                    <!--           FIM DA SEÇÃO CORRIGIDA                -->
+                                    <!-- =============================================== -->
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -196,6 +195,7 @@
     {% endif %}
 </div>
 
+<!-- Modais (permanecem os mesmos) -->
 <!-- Dataset Info Modal -->
 <div class="modal fade" id="datasetInfoModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
@@ -204,9 +204,7 @@
                 <h5 class="modal-title">Informações do Dataset</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body" id="datasetInfoContent">
-                <!-- Content will be loaded via JavaScript -->
-            </div>
+            <div class="modal-body" id="datasetInfoContent"></div>
         </div>
     </div>
 </div>
@@ -219,14 +217,9 @@
                 <h5 class="modal-title">Visualização do Dataset</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body" id="datasetPreviewContent">
-                <!-- Preview content will be loaded via JavaScript -->
-            </div>
+            <div class="modal-body" id="datasetPreviewContent"></div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
-                <button type="button" class="btn btn-success" onclick="exportCurrentDataset()">
-                    <i class="fas fa-download me-1"></i>Exportar Dataset
-                </button>
             </div>
         </div>
     </div>
@@ -234,6 +227,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<!-- Seu JavaScript existente pode permanecer aqui, pois ele alimenta os modais -->
 <script>
 let currentDatasetId = null;
 
@@ -242,15 +236,11 @@ async function viewDataset(datasetId) {
     currentDatasetId = datasetId;
     
     const modalContent = document.getElementById('datasetPreviewContent');
-    modalContent.innerHTML = `
-        <div class="text-center py-4">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Carregando...</span>
-            </div>
-            <p class="mt-2">Carregando dataset...</p>
-        </div>
-    `;
+    modalContent.innerHTML = `<div class="text-center py-4"><div class="spinner-border text-primary"></div><p class="mt-2">Carregando...</p></div>`;
     
+    const modal = new bootstrap.Modal(document.getElementById('datasetPreviewModal'));
+    modal.show();
+
     try {
         const response = await fetch(`/api/datasets/${datasetId}/preview`);
         const data = await response.json();
@@ -258,270 +248,61 @@ async function viewDataset(datasetId) {
         if (data.success) {
             displayDatasetPreview(data);
         } else {
-            modalContent.innerHTML = `
-                <div class="alert alert-danger">
-                    <i class="fas fa-exclamation-triangle me-2"></i>
-                    Erro ao carregar dataset: ${data.error}
-                </div>
-            `;
+            modalContent.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
         }
     } catch (error) {
-        console.error('Erro:', error);
-        modalContent.innerHTML = `
-            <div class="alert alert-danger">
-                <i class="fas fa-exclamation-triangle me-2"></i>
-                Erro ao carregar dataset: ${error.message}
-            </div>
-        `;
+        modalContent.innerHTML = `<div class="alert alert-danger">Erro ao carregar dados.</div>`;
     }
-    
-    const modal = new bootstrap.Modal(document.getElementById('datasetPreviewModal'));
-    modal.show();
 }
 
-// Função para exibir preview do dataset
 function displayDatasetPreview(data) {
-    const dataset = data.dataset;
-    const preview = data.preview;
-    
-    let html = `
-        <div class="mb-4">
-            <h6>Informações do Dataset</h6>
-            <div class="row">
-                <div class="col-md-4">
-                    <strong>Arquivo:</strong><br>${dataset.filename}
-                </div>
-                <div class="col-md-2">
-                    <strong>Linhas:</strong><br>${dataset.rows_count}
-                </div>
-                <div class="col-md-2">
-                    <strong>Colunas:</strong><br>${dataset.columns_count}
-                </div>
-                <div class="col-md-2">
-                    <strong>Qualidade:</strong><br>${dataset.quality_score || 'N/A'}%
-                </div>
-                <div class="col-md-2">
-                    <strong>Tamanho:</strong><br>${(dataset.file_size / (1024 * 1024)).toFixed(1)} MB
-                </div>
-            </div>
-            ${dataset.description ? `<p class="mt-2"><strong>Descrição:</strong> ${dataset.description}</p>` : ''}
-        </div>
-        
-        <h6>Pré-visualização (Primeiras ${preview.rows.length} linhas de ${preview.total_rows})</h6>
-        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
-            <table class="table table-sm table-striped table-bordered">
-                <thead class="table-light" style="position: sticky; top: 0; z-index: 1;">
-                    <tr>
-    `;
-    
-    // Cabeçalhos
-    preview.headers.forEach(header => {
-        html += `<th>${header}</th>`;
-    });
-    
-    html += `</tr></thead><tbody>`;
-    
-    // Dados
+    const { dataset, preview } = data;
+    let table = `<table class="table table-sm table-striped table-bordered"><thead><tr>`;
+    preview.headers.forEach(h => table += `<th>${h}</th>`);
+    table += `</tr></thead><tbody>`;
     preview.rows.forEach(row => {
-        html += `<tr>`;
-        row.forEach(cell => {
-            const displayValue = cell !== null && cell !== undefined && cell !== '' ? cell : '<span class="text-muted fst-italic">vazio</span>';
-            html += `<td>${displayValue}</td>`;
-        });
-        html += `</tr>`;
+        table += `<tr>`;
+        row.forEach(cell => table += `<td>${cell !== null ? cell : ''}</td>`);
+        table += `</tr>`;
     });
-    
-    html += `</tbody></table></div>`;
-    
-    html += `
-        <div class="alert alert-info mt-3">
-            <i class="fas fa-info-circle me-2"></i>
-            Mostrando as primeiras ${preview.rows.length} linhas de ${preview.total_rows} totais.
-            ${preview.total_columns} colunas disponíveis.
-        </div>
+    table += `</tbody></table>`;
+
+    document.getElementById('datasetPreviewContent').innerHTML = `
+        <div class="alert alert-info">Mostrando as primeiras ${preview.rows.length} de ${preview.total_rows} linhas.</div>
+        <div class="table-responsive" style="max-height: 400px;">${table}</div>
     `;
-    
-    document.getElementById('datasetPreviewContent').innerHTML = html;
 }
 
 // Função para mostrar informações detalhadas do dataset
 async function showDatasetInfo(datasetId) {
     const modalContent = document.getElementById('datasetInfoContent');
-    modalContent.innerHTML = `
-        <div class="text-center py-4">
-            <div class="spinner-border" role="status">
-                <span class="visually-hidden">Carregando...</span>
-            </div>
-            <p class="mt-2">Carregando informações...</p>
-        </div>
-    `;
+    modalContent.innerHTML = `<div class="text-center py-4"><div class="spinner-border"></div><p class="mt-2">Carregando...</p></div>`;
+    
+    const modal = new bootstrap.Modal(document.getElementById('datasetInfoModal'));
+    modal.show();
     
     try {
         const response = await fetch(`/api/datasets/${datasetId}/info`);
         const data = await response.json();
         
         if (data.success) {
-            displayDatasetInfo(data);
+            const { dataset, analysis } = data;
+            let html = `<h6>Informações Gerais</h6>
+                        <p><strong>Arquivo:</strong> ${dataset.filename}<br>
+                           <strong>Linhas:</strong> ${dataset.rows_count} | <strong>Colunas:</strong> ${dataset.columns_count}<br>
+                           <strong>Qualidade:</strong> ${dataset.quality_score.toFixed(1)}%</p>
+                        <h6>Colunas e Dados Faltantes</h6>`;
+            Object.keys(analysis.missing_percentage).forEach(col => {
+                const pct = analysis.missing_percentage[col];
+                html += `<div class="mb-1">${col} <span class="badge bg-${pct > 10 ? 'warning' : 'light text-dark'}">${pct.toFixed(1)}% ausente</span></div>`;
+            });
+            modalContent.innerHTML = html;
         } else {
-            modalContent.innerHTML = `
-                <div class="alert alert-danger">
-                    <i class="fas fa-exclamation-triangle me-2"></i>
-                    Erro ao carregar informações: ${data.error}
-                </div>
-            `;
+            modalContent.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
         }
     } catch (error) {
-        console.error('Erro:', error);
-        modalContent.innerHTML = `
-            <div class="alert alert-danger">
-                <i class="fas fa-exclamation-triangle me-2"></i>
-                Erro ao carregar informações: ${error.message}
-            </div>
-        `;
+         modalContent.innerHTML = `<div class="alert alert-danger">Erro ao carregar informações.</div>`;
     }
-    
-    const modal = new bootstrap.Modal(document.getElementById('datasetInfoModal'));
-    modal.show();
-}
-
-// Função para exibir informações detalhadas
-function displayDatasetInfo(data) {
-    const dataset = data.dataset;
-    const analysis = data.analysis;
-    
-    let html = `
-        <div class="row g-3">
-            <div class="col-md-6">
-                <strong>Nome do Arquivo:</strong><br>${dataset.filename}
-            </div>
-            <div class="col-md-3">
-                <strong>Tamanho:</strong><br>${dataset.file_size_mb} MB
-            </div>
-            <div class="col-md-3">
-                <strong>Qualidade:</strong><br>${dataset.quality_score || 'N/A'}%
-            </div>
-            <div class="col-md-4">
-                <strong>Linhas:</strong><br>${dataset.rows_count}
-            </div>
-            <div class="col-md-4">
-                <strong>Colunas:</strong><br>${dataset.columns_count}
-            </div>
-            <div class="col-md-4">
-                <strong>Upload:</strong><br>${dataset.uploaded_at}
-            </div>
-    `;
-    
-    if (dataset.description) {
-        html += `<div class="col-12"><strong>Descrição:</strong><br>${dataset.description}</div>`;
-    }
-    
-    html += `
-            <div class="col-12">
-                <strong>Estrutura do Dataset:</strong><br>
-                <div class="mt-2">
-    `;
-    
-    analysis.columns.forEach(column => {
-        const dataType = analysis.data_types[column];
-        const missingPct = analysis.missing_percentage[column];
-        const badgeClass = missingPct > 10 ? 'bg-warning' : 'bg-primary';
-        
-        html += `<span class="badge ${badgeClass} me-1 mb-1" title="${dataType} - ${missingPct.toFixed(1)}% faltando">
-            ${column}
-        </span>`;
-    });
-    
-    html += `
-                </div>
-            </div>
-            <div class="col-12">
-                <strong>Dados Faltantes:</strong><br>
-                <div class="mt-2">
-    `;
-    
-    Object.entries(analysis.missing_percentage)
-        .filter(([_, pct]) => pct > 0)
-        .forEach(([column, pct]) => {
-            html += `<span class="badge bg-secondary me-1 mb-1">${column}: ${pct.toFixed(1)}%</span>`;
-        });
-    
-    if (Object.keys(analysis.missing_percentage).filter(col => analysis.missing_percentage[col] > 0).length === 0) {
-        html += `<span class="text-success">Nenhum dado faltante encontrado</span>`;
-    }
-    
-    html += `
-                </div>
-            </div>
-        </div>
-    `;
-    
-    document.getElementById('datasetInfoContent').innerHTML = html;
-}
-
-// Funções de exportação (mantenha as existentes)
-function exportDataset(datasetId) {
-    const downloadUrl = `/datasets/${datasetId}/export`;
-    const link = document.createElement('a');
-    link.href = downloadUrl;
-    link.download = '';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    showToast('Dataset exportado com sucesso!', 'success');
-}
-
-function exportCurrentDataset() {
-    if (currentDatasetId) {
-        exportDataset(currentDatasetId);
-        const modal = bootstrap.Modal.getInstance(document.getElementById('datasetPreviewModal'));
-        modal.hide();
-    }
-}
-
-// Funções de toast (mantenha as existentes)
-function showToast(message, type = 'info') {
-    const toastContainer = document.getElementById('toastContainer') || createToastContainer();
-    const toastId = 'toast-' + Date.now();
-    
-    const toastHTML = `
-        <div id="${toastId}" class="toast align-items-center text-white bg-${type} border-0" role="alert">
-            <div class="d-flex">
-                <div class="toast-body">
-                    <i class="fas ${getToastIcon(type)} me-2"></i>
-                    ${message}
-                </div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-            </div>
-        </div>
-    `;
-    
-    toastContainer.insertAdjacentHTML('beforeend', toastHTML);
-    const toastElement = document.getElementById(toastId);
-    const toast = new bootstrap.Toast(toastElement);
-    toast.show();
-    
-    toastElement.addEventListener('hidden.bs.toast', function () {
-        toastElement.remove();
-    });
-}
-
-function createToastContainer() {
-    const container = document.createElement('div');
-    container.id = 'toastContainer';
-    container.className = 'toast-container position-fixed top-0 end-0 p-3';
-    container.style.zIndex = '9999';
-    document.body.appendChild(container);
-    return container;
-}
-
-function getToastIcon(type) {
-    const icons = {
-        'success': 'fa-check-circle',
-        'danger': 'fa-exclamation-triangle',
-        'warning': 'fa-exclamation-circle',
-        'info': 'fa-info-circle'
-    };
-    return icons[type] || 'fa-info-circle';
 }
 </script>
 {% endblock %}
