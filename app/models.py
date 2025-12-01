@@ -4,6 +4,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 import json
 import secrets # Módulo para gerar tokens seguros
+from sqlalchemy.dialects.postgresql import BYTEA 
 
 # O user_loader é essencial para o Flask-Login
 @login_manager.user_loader
@@ -103,7 +104,8 @@ class Dataset(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     filename = db.Column(db.String(255), nullable=False)
     original_filename = db.Column(db.String(255), nullable=False)
-    file_path = db.Column(db.String(500), nullable=False)
+    #file_path = db.Column(db.String(500), nullable=False)
+    file_data = db.Column(BYTEA, nullable=True)
     file_size = db.Column(db.Integer)
     rows_count = db.Column(db.Integer)
     columns_count = db.Column(db.Integer)

@@ -12,6 +12,7 @@ from pandas.api.types import is_numeric_dtype
 import pandas as pd
 import numpy as np
 import os
+from io import BytesIO
 from datetime import datetime, timedelta
 import requests
 import logging
@@ -439,6 +440,8 @@ def map_view():
                              mapbox_token='',
                              now=datetime.now())
 
+# Em app/blueprints/routes.py, na função upload_data()
+
 @main_bp.route('/upload', methods=['GET', 'POST'])
 @login_required
 def upload_data():
@@ -449,33 +452,43 @@ def upload_data():
         
         if file and allowed_file(file.filename):
             try:
-                # Process uploaded file
-                result = process_uploaded_file(file, current_user.id, current_app.config['UPLOAD_FOLDER'])
+                 
+                # 1. Lê o conteúdo do arquivo em memória
+                file_content = file.read()
                 
-                if result['success']:
-                    # Create dataset record
-                    dataset = Dataset(
-                        filename=result['filename'],
-                        original_filename=file.filename,
-                        file_path=result['file_path'],
-                        file_size=result['file_size'],
-                        rows_count=result['rows_count'],
-                        columns_count=result['columns_count'],
-                        description=form.description.data,
-                        is_public=form.is_public.data,
-                        user_id=current_user.id,
-                        data_quality_score=float(result['quality_score']),
-                        missing_data_percentage=float(result['missing_percentage']),
-                        source='user_upload'
-                    )
-                    
-                    db.session.add(dataset)
-                    db.session.commit()
-                    
-                    flash(f'Dataset "{file.filename}" carregado com sucesso!', 'success')
-                    return redirect(url_for('main.datasets'))
-                else:
-                    flash(f'Erro ao processar arquivo: {result["error"]}', 'danger')
+                # 2. Usa pandas para ler de um buffer em memória e obter metadados
+                from io import BytesIO
+                df = pd.read_csv(BytesIO(file_content))
+                
+                # Calcula métricas de qualidade
+                total_cells = df.size
+                missing_cells = df.isnull().sum().sum()
+                missing_percentage = (missing_cells / total_cells) * 100 if total_cells > 0 else 0
+                quality_score = max(0, 100 - missing_percentage)
+
+                # Cria o registro do dataset
+                dataset = Dataset(
+                    filename=secure_filename(file.filename), 
+                    original_filename=file.filename,
+                    file_data=file_content, # <--- SALVA O CONTEÚDO BINÁRIO
+                    file_size=len(file_content),
+                    rows_count=len(df),
+                    columns_count=len(df.columns),
+                    description=form.description.data,
+                    is_public=form.is_public.data,
+                    user_id=current_user.id,
+                    data_quality_score=float(quality_score),
+                    missing_data_percentage=float(missing_percentage),
+                    source='user_upload'
+                )
+                
+             
+
+                db.session.add(dataset)
+                db.session.commit()
+                
+                flash(f'Dataset "{file.filename}" carregado com sucesso para o banco de dados!', 'success')
+                return redirect(url_for('main.datasets'))
                     
             except Exception as e:
                 flash(f'Erro ao fazer upload: {str(e)}', 'danger')
@@ -483,6 +496,7 @@ def upload_data():
             flash('Tipo de arquivo não permitido. Use CSV ou Excel.', 'warning')
     
     return render_template('upload.html', form=form)
+
 
 @main_bp.route('/datasets')
 @login_required
@@ -889,7 +903,7 @@ def download_dataset(dataset_id):
             return redirect(url_for('main.datasets'))
         
         return send_file(
-            file_path,
+            BytesIO(dataset.file_data), # Cria um "arquivo virtual" a partir dos dados do banco
             as_attachment=True,
             download_name=dataset.original_filename,
             mimetype='text/csv'
@@ -2156,7 +2170,8 @@ def analysis_lab(dataset_id):
     
     data_preview_html = None
     try:
-        df = pd.read_csv(dataset.file_path) # Carrega o DF completo para análise
+         # Lê o DataFrame diretamente do campo binário do banco
+        df = pd.read_csv(BytesIO(dataset.file_data))  
         
         # Pega as colunas para os menus de seleção
         numeric_features = df.select_dtypes(include=np.number).columns.tolist()
