@@ -75,8 +75,11 @@ def dashboard():
         # Processar cada dataset do usuário
         for dataset in user_datasets[-5:]:  # Últimos 5 datasets
             try:
-                if os.path.exists(dataset.file_path):
-                    df = pd.read_csv(dataset.file_path)
+                    if dataset.file_data: # Verifica se há dados binários
+                    # Lê o DataFrame diretamente do campo binário
+                      df = pd.read_csv(BytesIO(dataset.file_data))
+                    else:
+                     continue # Pula para o próximo dataset se não houver dados
                     
                     # Extrair AQI
                     if 'Overall_AQI' in df.columns:
@@ -922,7 +925,7 @@ def api_dataset_preview(dataset_id):
         dataset = Dataset.query.filter_by(id=dataset_id, user_id=current_user.id).first_or_404()
         
         # Ler o arquivo CSV
-        df = pd.read_csv(dataset.file_path)
+        df = pd.read_csv(BytesIO(dataset.file_data))
         
         # Preparar preview (primeiras 10 linhas)
         preview_data = {
@@ -2205,7 +2208,8 @@ def run_clustering_endpoint():
     n_clusters = int(data.get('n_clusters', 3))
     
     dataset = Dataset.query.get_or_404(dataset_id)
-    df = pd.read_csv(dataset.file_path)
+
+    df = pd.read_csv(BytesIO(dataset.file_data))
     
     result = run_kmeans_clustering(df, features, n_clusters)
     return jsonify(result)
@@ -2218,7 +2222,7 @@ def run_pca_endpoint():
     dataset = Dataset.query.get_or_404(data.get('dataset_id'))
     features = data.get('features')
     
-    df = pd.read_csv(dataset.file_path)
+    df = pd.read_csv(BytesIO(dataset.file_data))
     result = run_pca_analysis(df, features)
     return jsonify(result)
 
@@ -2231,7 +2235,7 @@ def run_classification_endpoint():
     features = data.get('features')
     target = data.get('target')
     
-    df = pd.read_csv(dataset.file_path)
+    df = pd.read_csv(BytesIO(dataset.file_data))
     result = run_classification_analysis(df, features, target)
     return jsonify(result)
 
@@ -2244,6 +2248,6 @@ def run_regression_endpoint():
     features = data.get('features')
     target = data.get('target')
     
-    df = pd.read_csv(dataset.file_path)
+    df = pd.read_csv(BytesIO(dataset.file_data))
     result = run_regression_analysis(df, features, target)
     return jsonify(result)

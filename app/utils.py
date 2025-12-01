@@ -5,6 +5,7 @@ from functools import wraps
 from flask import abort
 from flask_login import current_user
 from datetime import datetime
+from flask import current_app
 
 # Decorator para rotas administrativas
 def admin_required(f):
@@ -30,7 +31,8 @@ def process_uploaded_file(file, user_id, upload_folder):
         filename = f"{user_id}_{timestamp}_{original_filename}"
         
         # Garante que o diretório de uploads exista
-        os.makedirs(upload_folder, exist_ok=True)
+        #os.makedirs(upload_folder, exist_ok=True)
+        upload_folder = current_app.config['UPLOAD_FOLDER']
         
         file_path = os.path.join(upload_folder, filename)
         file.save(file_path)
