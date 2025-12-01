@@ -13,7 +13,7 @@ import os
 from datetime import datetime
 import logging
 from app.data_processing import prepare_features_for_ml, clean_dataset
-
+from io import BytesIO
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -37,13 +37,13 @@ class ModelTrainer:
             }
         }
     
-    def train_model(self, file_path, features, target, model_type, algorithm, test_size=0.2, user_id=None):
+    def train_model(self, dataset_data, features, target, model_type, algorithm, test_size=0.2, user_id=None):
         """Train a machine learning model"""
         try:
             logger.info(f"Starting model training: {model_type}, {algorithm}")
             
             # Load and clean data
-            df = pd.read_csv(file_path)
+            df = pd.read_csv(BytesIO(dataset_data))
             df_clean = clean_dataset(df)
             
             # Validate features and target

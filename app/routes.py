@@ -545,7 +545,7 @@ def ml_models():
         try:
             # Chama a função de treinamento do modelo
             model_result = train_model(
-                dataset.file_path,
+                dataset.file_data,
                 features,
                 form.target_variable.data,
                 form.model_type.data,
@@ -767,51 +767,63 @@ def add_air_quality_data():
 @main_bp.route('/api/dataset-features/<int:dataset_id>')
 @login_required
 def api_dataset_features(dataset_id):
-    """API para buscar features e seus tipos em um dataset."""
+    """
+    API aprimorada para buscar features e seus tipos (numérico/categórico) de um dataset,
+    lendo os dados diretamente do banco de dados.
+    """
     try:
         dataset = Dataset.query.get_or_404(dataset_id)
         
+        # 1. Validação de Permissão e Dados
         if dataset.user_id != current_user.id and not dataset.is_public:
             return jsonify({'success': False, 'error': 'Acesso negado'}), 403
         
-        if not os.path.exists(dataset.file_path):
-            return jsonify({'success': False, 'error': 'Arquivo não encontrado'}), 404
+        if not dataset.file_data:
+            return jsonify({'success': False, 'error': 'O dataset está vazio ou não contém dados.'}), 404
 
-        # NOVA LÓGICA DE ANÁLISE DE TIPOS
-        # ----------------------------------------------------
-        df = pd.read_csv(dataset.file_path, nrows=500) # Lê algumas linhas para inferir tipos
+        # 2. Leitura dos Dados do Banco
+        # Lê o DataFrame completo para analisar os tipos de dados corretamente
+        df = pd.read_csv(BytesIO(dataset.file_data))
 
+        # 3. Lógica Inteligente de Análise de Tipos de Coluna
         columns_with_types = []
         for col in df.columns:
-            # Pula colunas de data/id que não servem como feature nem alvo
-            if 'date' in col.lower() or 'time' in col.lower() or 'id' in col.lower() or col.startswith('Unnamed'):
+            # Pula colunas que raramente são úteis para modelagem
+            clean_col = col.lower().strip()
+            if clean_col in ['id', 'unnamed: 0'] or clean_col.startswith('unnamed:'):
+                continue
+            
+            # Remove colunas com um único valor (não trazem informação)
+            if df[col].nunique() <= 1:
                 continue
             
             column_type = ''
-            # Verifica se a coluna é numérica
+            # Verifica se o tipo da coluna é numérico (int, float)
             if is_numeric_dtype(df[col]):
-                # Se for numérica, mas tiver poucos valores únicos (ex: 0, 1, 2), é categórica
-                if df[col].nunique() < 25: # Um limiar: menos de 25 valores únicos = categoria
+                # Se for numérica, mas tiver poucos valores únicos (ex: 0/1, status 1/2/3), 
+                # é mais útil tratá-la como uma categoria.
+                # O limiar de 25 é um bom ponto de partida.
+                if df[col].nunique() < 25: 
                     column_type = 'categorical'
                 else:
                     column_type = 'numeric'
             else:
-                # Se não for numérica, é categórica
+                # Se o tipo não for numérico (ex: object/string), é categórica
                 column_type = 'categorical'
 
             columns_with_types.append({'name': col, 'type': column_type})
-        # ----------------------------------------------------
-
+        
+        # 4. Retorna a resposta em JSON para o frontend
         return jsonify({
             'success': True, 
-            'columns': columns_with_types, # <-- Retorna a nova estrutura
+            'columns': columns_with_types, # <-- Retorna a lista de colunas com seus tipos
             'dataset_name': dataset.original_filename,
             'total_rows': dataset.rows_count
         })
             
     except Exception as e:
-        logger.error(f"Erro ao buscar features do dataset {dataset_id}: {e}")
-        return jsonify({'success': False, 'error': 'Ocorreu um erro inesperado no servidor.'}), 500
+        logger.error(f"Erro ao buscar e analisar features do dataset {dataset_id}: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': 'Ocorreu um erro inesperado ao analisar o dataset.'}), 500
     
 @main_bp.route('/datasets/<int:dataset_id>/export')
 @login_required
@@ -962,7 +974,7 @@ def api_dataset_info(dataset_id):
         dataset = Dataset.query.filter_by(id=dataset_id, user_id=current_user.id).first_or_404()
         
         # Ler o arquivo para análise detalhada
-        df = pd.read_csv(dataset.file_path)
+        df = pd.read_csv(BytesIO(dataset.file_data))
         
         # Estatísticas básicas
         numeric_columns = df.select_dtypes(include=['number']).columns

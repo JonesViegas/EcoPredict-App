@@ -5,6 +5,60 @@ document.addEventListener('DOMContentLoaded', function() {
 // ===============================================
 //          NOVAS FUNÇÕES AUXILIARES
 // ===============================================
+async function loadDatasetColumns() {
+        try {
+            const response = await fetch(`/api/dataset-features/${DATASET_ID}`);
+            if (!response.ok) throw new Error('Falha ao carregar colunas do dataset.');
+
+            const data = await response.json();
+            if (data.success) {
+                populateSelects(data.columns);
+            } else {
+                throw new Error(data.error);
+            }
+        } catch (error) {
+            alert(`Erro: ${error.message}`);
+        }
+    }
+
+    // Função para preencher todas as listas de seleção
+    function populateSelects(columns) {
+        // Encontra todos os selects que precisam ser populados
+        const selects = {
+            clustering: document.getElementById('clustering-features'),
+            pca: document.getElementById('pca-features'),
+            classificationTarget: document.getElementById('classification-target'),
+            classificationFeatures: document.getElementById('classification-features'),
+            regressionTarget: document.getElementById('regression-target'),
+            regressionFeatures: document.getElementById('regression-features')
+        };
+
+        // Limpa todas as opções existentes
+        for (const key in selects) {
+            if (selects[key]) selects[key].innerHTML = '';
+        }
+
+        columns.forEach(col => {
+            const option = new Option(col.name, col.name);
+
+            // Adiciona a opção aos selects apropriados com base no tipo
+            if (col.type === 'numeric') {
+                selects.clustering.add(option.cloneNode(true));
+                selects.pca.add(option.cloneNode(true));
+                selects.regressionTarget.add(option.cloneNode(true));
+            }
+            if (col.type === 'categorical') {
+                selects.classificationTarget.add(option.cloneNode(true));
+            }
+            
+            // Todas as colunas podem ser features de entrada para classificação e regressão
+            selects.classificationFeatures.add(option.cloneNode(true));
+            selects.regressionFeatures.add(option.cloneNode(true));
+        });
+    }
+
+    loadDatasetColumns();
+
 
 /**
  * Imprime o conteúdo da área de resultados.
